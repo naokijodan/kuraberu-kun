@@ -136,12 +136,13 @@
 }
 
 .kuraberu-ai-btn,
-.kuraberu-search-btn {
+.kuraberu-search-btn,
+.kuraberu-terapeak-btn {
   flex: 1;
-  padding: 10px 12px;
+  padding: 10px 8px;
   border: none;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -170,6 +171,16 @@
 
 .kuraberu-search-btn:hover {
   background: #0055b3;
+}
+
+.kuraberu-terapeak-btn {
+  background: linear-gradient(135deg, #f5af02 0%, #e09b00 100%);
+  color: white;
+}
+
+.kuraberu-terapeak-btn:hover {
+  background: linear-gradient(135deg, #ffbe1a 0%, #f0a800 100%);
+  transform: translateY(-1px);
 }
 
 /* メッセージ */

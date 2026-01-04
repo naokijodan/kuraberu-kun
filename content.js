@@ -188,7 +188,8 @@
         </div>
         <div class="kuraberu-buttons">
           <button class="kuraberu-ai-btn">🤖 AI翻訳</button>
-          <button class="kuraberu-search-btn">🔍 eBayで検索</button>
+          <button class="kuraberu-search-btn">🔍 eBay</button>
+          <button class="kuraberu-terapeak-btn">📊 テラピーク</button>
         </div>
         <div class="kuraberu-message"></div>
       </div>
@@ -216,6 +217,16 @@
       const keyword = panel.querySelector('.kuraberu-keyword-input').value.trim();
       if (keyword) {
         openEbaySearch(keyword);
+      } else {
+        showMessage(panel, '⚠️ 検索キーワードを入力してください', 'warning');
+      }
+    });
+
+    // テラピーク検索ボタン
+    panel.querySelector('.kuraberu-terapeak-btn').addEventListener('click', () => {
+      const keyword = panel.querySelector('.kuraberu-keyword-input').value.trim();
+      if (keyword) {
+        openTerapeakSearch(keyword);
       } else {
         showMessage(panel, '⚠️ 検索キーワードを入力してください', 'warning');
       }
@@ -303,6 +314,23 @@
     });
 
     console.log('[くらべる君] eBay検索を開きました:', keyword);
+  }
+
+  /**
+   * テラピーク検索ページを開く
+   */
+  function openTerapeakSearch(keyword) {
+    // テラピークProduct Research検索URL
+    const terapeakUrl = `https://www.ebay.com/sh/research?marketplace=EBAY-US&keywords=${encodeURIComponent(keyword)}&dayRange=90&endDate=&startDate=&categoryId=0&offset=0&limit=50&tabName=SOLD&tz=Asia%2FTokyo`;
+
+    // バックグラウンドで開く
+    chrome.runtime.sendMessage({
+      action: 'openTab',
+      url: terapeakUrl,
+      active: true
+    });
+
+    console.log('[くらべる君] テラピーク検索を開きました:', keyword);
   }
 
   /**
