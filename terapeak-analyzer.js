@@ -7,9 +7,10 @@
 
   console.log('[くらべる君 テラピーク] 分析スクリプト読み込み');
 
-  // 累積データ
+  // 累積データ（chrome.storageで永続化）
   let collectedPrices = [];
   let currentPanel = null;
+  let currentSearchKeyword = '';
 
   /**
    * テラピークページかどうかを判定
@@ -214,7 +215,8 @@
 
     document.getElementById('kuraberu-tp-refresh').addEventListener('click', () => {
       collectedPrices = [];
-      showMessage('🔄 データを読み込み中...');
+      clearAccumulatedData();
+      showMessage('🔄 データをリセットしました');
       // 少し待ってから再分析（SPAのデータ更新を待つ）
       setTimeout(() => {
         analyzePage();
@@ -225,8 +227,63 @@
       analyzePage(true); // 累積モード
     });
 
-    // 初回分析
-    analyzePage();
+    // 累積データを読み込んでから初回分析
+    loadAccumulatedData().then((savedPrices) => {
+      if (savedPrices.length > 0) {
+        collectedPrices = savedPrices;
+        currentSearchKeyword = getSearchKeyword();
+        console.log('[くらべる君 テラピーク] 累積データ読み込み:', savedPrices.length, '件');
+        analyzePage(true);
+      } else {
+        analyzePage();
+      }
+    });
+  }
+
+  /**
+   * URLから検索キーワードを取得
+   */
+  function getSearchKeyword() {
+    const url = new URL(window.location.href);
+    return url.searchParams.get('keywords') || '';
+  }
+
+  /**
+   * 累積データを保存
+   */
+  function saveAccumulatedData() {
+    chrome.storage.local.set({
+      'kuraberu_tp_prices': collectedPrices,
+      'kuraberu_tp_keyword': currentSearchKeyword,
+      'kuraberu_tp_timestamp': Date.now()
+    });
+  }
+
+  /**
+   * 累積データを読み込み
+   */
+  async function loadAccumulatedData() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['kuraberu_tp_prices', 'kuraberu_tp_keyword', 'kuraberu_tp_timestamp'], (result) => {
+        const keyword = getSearchKeyword();
+        const savedKeyword = result.kuraberu_tp_keyword || '';
+        const timestamp = result.kuraberu_tp_timestamp || 0;
+        const isRecent = (Date.now() - timestamp) < 30 * 60 * 1000; // 30分以内
+
+        if (savedKeyword === keyword && isRecent && result.kuraberu_tp_prices) {
+          resolve(result.kuraberu_tp_prices);
+        } else {
+          resolve([]);
+        }
+      });
+    });
+  }
+
+  /**
+   * 累積データをクリア
+   */
+  function clearAccumulatedData() {
+    chrome.storage.local.remove(['kuraberu_tp_prices', 'kuraberu_tp_keyword', 'kuraberu_tp_timestamp']);
   }
 
   /**
@@ -234,14 +291,18 @@
    */
   function analyzePage(accumulate = false) {
     const newPrices = extractPrices();
+    console.log('[くらべる君 テラピーク] 新規価格:', newPrices.length, '件');
 
     if (accumulate) {
       // 累積モード：既存データに追加
       collectedPrices = [...collectedPrices, ...newPrices];
-      showMessage(`➕ ${newPrices.length}件を追加しました`);
+      saveAccumulatedData();
+      showMessage(`➕ ${newPrices.length}件を追加（計${collectedPrices.length}件）`);
     } else {
       // リセットモード
       collectedPrices = newPrices;
+      currentSearchKeyword = getSearchKeyword();
+      saveAccumulatedData();
     }
 
     updateStatsDisplay();

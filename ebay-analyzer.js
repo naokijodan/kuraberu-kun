@@ -8,10 +8,11 @@
 
   console.log('[くらべる君 eBay] 分析スクリプト読み込み');
 
-  // 累積データ
+  // 累積データ（chrome.storageで永続化）
   let collectedPrices = [];
   let currentPanel = null;
   let selectionPopup = null;
+  let currentSearchKeyword = ''; // 現在の検索キーワード
 
   /**
    * eBay Sold Listingsページかどうかを判定
@@ -231,15 +232,75 @@
 
     document.getElementById('kuraberu-refresh').addEventListener('click', () => {
       collectedPrices = [];
+      clearAccumulatedData();
       analyzePage();
+      showMessage('🔄 データをリセットしました');
     });
 
     document.getElementById('kuraberu-add-page').addEventListener('click', () => {
       analyzePage(true); // 累積モード
     });
 
-    // 初回分析
-    analyzePage();
+    // 累積データを読み込んでから初回分析
+    loadAccumulatedData().then((savedPrices) => {
+      if (savedPrices.length > 0) {
+        collectedPrices = savedPrices;
+        currentSearchKeyword = getSearchKeyword();
+        console.log('[くらべる君 eBay] 累積データ読み込み:', savedPrices.length, '件');
+        // 累積データがある場合は追加モードで分析
+        analyzePage(true);
+      } else {
+        // 新規分析
+        analyzePage();
+      }
+    });
+  }
+
+  /**
+   * URLから検索キーワードを取得
+   */
+  function getSearchKeyword() {
+    const url = new URL(window.location.href);
+    return url.searchParams.get('_nkw') || '';
+  }
+
+  /**
+   * 累積データを保存
+   */
+  function saveAccumulatedData() {
+    chrome.storage.local.set({
+      'kuraberu_ebay_prices': collectedPrices,
+      'kuraberu_ebay_keyword': currentSearchKeyword,
+      'kuraberu_ebay_timestamp': Date.now()
+    });
+  }
+
+  /**
+   * 累積データを読み込み
+   */
+  async function loadAccumulatedData() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['kuraberu_ebay_prices', 'kuraberu_ebay_keyword', 'kuraberu_ebay_timestamp'], (result) => {
+        const keyword = getSearchKeyword();
+        const savedKeyword = result.kuraberu_ebay_keyword || '';
+        const timestamp = result.kuraberu_ebay_timestamp || 0;
+        const isRecent = (Date.now() - timestamp) < 30 * 60 * 1000; // 30分以内
+
+        // 同じキーワードで30分以内のデータがあれば引き継ぐ
+        if (savedKeyword === keyword && isRecent && result.kuraberu_ebay_prices) {
+          resolve(result.kuraberu_ebay_prices);
+        } else {
+          resolve([]);
+        }
+      });
+    });
+  }
+
+  /**
+   * 累積データをクリア
+   */
+  function clearAccumulatedData() {
+    chrome.storage.local.remove(['kuraberu_ebay_prices', 'kuraberu_ebay_keyword', 'kuraberu_ebay_timestamp']);
   }
 
   /**
@@ -247,14 +308,19 @@
    */
   function analyzePage(accumulate = false) {
     const newPrices = extractPrices();
+    console.log('[くらべる君 eBay] 新規価格:', newPrices.length, '件');
 
     if (accumulate) {
       // 累積モード：既存データに追加
+      const beforeCount = collectedPrices.length;
       collectedPrices = [...collectedPrices, ...newPrices];
-      showMessage(`➕ ${newPrices.length}件を追加しました`);
+      saveAccumulatedData();
+      showMessage(`➕ ${newPrices.length}件を追加（計${collectedPrices.length}件）`);
     } else {
       // リセットモード
       collectedPrices = newPrices;
+      currentSearchKeyword = getSearchKeyword();
+      saveAccumulatedData();
     }
 
     updateStatsDisplay();
