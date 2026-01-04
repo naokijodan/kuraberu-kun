@@ -178,7 +178,11 @@
 
     document.getElementById('kuraberu-tp-refresh').addEventListener('click', () => {
       collectedPrices = [];
-      analyzePage();
+      showMessage('🔄 データを読み込み中...');
+      // 少し待ってから再分析（SPAのデータ更新を待つ）
+      setTimeout(() => {
+        analyzePage();
+      }, 1000);
     });
 
     document.getElementById('kuraberu-tp-add-page').addEventListener('click', () => {
@@ -264,6 +268,31 @@
   }
 
   /**
+   * テーブルが読み込まれるまで待つ
+   */
+  function waitForTable(callback, maxAttempts = 20) {
+    let attempts = 0;
+
+    const check = () => {
+      attempts++;
+      const table = document.querySelector('table tbody tr');
+      console.log('[くらべる君 テラピーク] テーブル確認中... 試行', attempts);
+
+      if (table) {
+        console.log('[くらべる君 テラピーク] テーブル発見');
+        callback();
+      } else if (attempts < maxAttempts) {
+        setTimeout(check, 500);
+      } else {
+        console.log('[くらべる君 テラピーク] テーブルが見つかりませんでした');
+        callback(); // パネルは表示する（エラーメッセージ用）
+      }
+    };
+
+    check();
+  }
+
+  /**
    * 初期化
    */
   function init() {
@@ -274,10 +303,10 @@
 
     console.log('[くらべる君 テラピーク] テラピークページを検出');
 
-    // テラピークはSPAなので、より長めに待つ
-    setTimeout(() => {
+    // テーブルが読み込まれるまで待ってからパネル表示
+    waitForTable(() => {
       showAnalysisPanel();
-    }, 3000);
+    });
   }
 
   // 初期化実行
@@ -294,9 +323,9 @@
       lastUrl = window.location.href;
       if (isTerapeakPage()) {
         collectedPrices = [];
-        setTimeout(() => {
+        waitForTable(() => {
           showAnalysisPanel();
-        }, 3000);
+        });
       }
     }
   }, 1000);
