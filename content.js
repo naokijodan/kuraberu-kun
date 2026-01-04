@@ -217,7 +217,8 @@
         messageEl.innerHTML += '<br><a href="#" class="kuraberu-settings-link" style="color: #0064d2; text-decoration: underline; cursor: pointer;">設定を開く</a>';
         messageEl.querySelector('.kuraberu-settings-link').addEventListener('click', (e) => {
           e.preventDefault();
-          chrome.runtime.openOptionsPage();
+          // content scriptからはopenOptionsPageが使えないのでbackgroundに依頼
+          chrome.runtime.sendMessage({ action: 'openOptionsPage' });
         });
         return;
       }

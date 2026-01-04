@@ -67,6 +67,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (request.action === 'openOptionsPage') {
+    // 設定画面を開く
+    chrome.runtime.openOptionsPage();
+    sendResponse({ success: true });
+    return true;
+  }
 });
 
 /**
