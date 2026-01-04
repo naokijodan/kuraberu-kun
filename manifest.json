@@ -3,7 +3,7 @@
   "name": "くらべる君",
   "version": "1.0.0",
   "description": "メルカリ商品のeBay市場価格を瞬時にリサーチ",
-  "permissions": ["storage"],
+  "permissions": ["storage", "tabs"],
   "host_permissions": [
     "https://www.ebay.com/*"
   ],

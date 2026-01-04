@@ -7,8 +7,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 16px;
-  margin: 8px 0;
+  padding: 12px 20px;
   background: linear-gradient(135deg, #0064d2 0%, #004a9e 100%);
   color: white;
   border: none;
@@ -17,13 +16,14 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 100, 210, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 100, 210, 0.3);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .kuraberu-btn:hover {
   background: linear-gradient(135deg, #0073e6 0%, #0055b3 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 100, 210, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 100, 210, 0.4);
 }
 
 .kuraberu-btn:active {
@@ -32,10 +32,10 @@
 
 /* パネル */
 .kuraberu-panel {
-  width: 320px;
+  width: 360px;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
 }
@@ -45,29 +45,29 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 14px 16px;
   background: linear-gradient(135deg, #0064d2 0%, #004a9e 100%);
   color: white;
 }
 
 .kuraberu-panel-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .kuraberu-panel-close {
-  background: none;
+  background: rgba(255,255,255,0.2);
   border: none;
   color: white;
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
-  padding: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
   line-height: 1;
-  opacity: 0.8;
 }
 
 .kuraberu-panel-close:hover {
-  opacity: 1;
+  background: rgba(255,255,255,0.3);
 }
 
 /* パネルボディ */
@@ -75,180 +75,125 @@
   padding: 16px;
 }
 
-/* ローディング */
-.kuraberu-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 24px;
+/* セクション */
+.kuraberu-section {
+  margin-bottom: 16px;
+}
+
+.kuraberu-section label {
+  display: block;
+  font-size: 12px;
   color: #666;
+  margin-bottom: 6px;
+  font-weight: 500;
 }
 
-.kuraberu-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #e0e0e0;
-  border-top-color: #0064d2;
-  border-radius: 50%;
-  animation: kuraberu-spin 0.8s linear infinite;
-}
-
-@keyframes kuraberu-spin {
-  to { transform: rotate(360deg); }
+/* 元のタイトル */
+.kuraberu-original-title {
+  padding: 10px 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #333;
+  line-height: 1.5;
+  max-height: 80px;
+  overflow-y: auto;
+  word-break: break-all;
 }
 
 /* キーワード入力 */
-.kuraberu-keyword-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #eee;
-}
-
-.kuraberu-keyword-section label {
-  font-size: 12px;
-  color: #666;
-}
-
 .kuraberu-keyword-input {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #ddd;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
 }
 
 .kuraberu-keyword-input:focus {
   outline: none;
   border-color: #0064d2;
-  box-shadow: 0 0 0 2px rgba(0, 100, 210, 0.1);
 }
 
-.kuraberu-research-btn {
-  padding: 8px 16px;
-  background: #0064d2;
-  color: white;
+.kuraberu-keyword-input::placeholder {
+  color: #aaa;
+}
+
+/* ヒント */
+.kuraberu-hint {
+  font-size: 11px;
+  color: #888;
+  margin-top: 6px;
+}
+
+/* ボタングループ */
+.kuraberu-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.kuraberu-translate-btn,
+.kuraberu-search-btn {
+  flex: 1;
+  padding: 10px 12px;
   border: none;
   border-radius: 6px;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
-.kuraberu-research-btn:hover {
-  background: #0055b3;
-}
-
-/* 統計情報 */
-.kuraberu-stats {
-  margin-bottom: 16px;
-}
-
-.kuraberu-stat-main {
-  text-align: center;
-  padding: 12px;
-  background: #f0f7ff;
-  border-radius: 8px;
-  margin-bottom: 12px;
-}
-
-.kuraberu-stat-main .kuraberu-stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #0064d2;
-}
-
-.kuraberu-stat-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.kuraberu-stat-item {
-  flex: 1;
-  padding: 8px;
-  background: #f5f5f5;
-  border-radius: 6px;
-  text-align: center;
-}
-
-.kuraberu-stat-label {
-  display: block;
-  font-size: 11px;
-  color: #888;
-  margin-bottom: 4px;
-}
-
-.kuraberu-stat-value {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
+.kuraberu-translate-btn {
+  background: #f0f0f0;
   color: #333;
 }
 
-/* 販売履歴リスト */
-.kuraberu-items-header {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 8px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #eee;
+.kuraberu-translate-btn:hover {
+  background: #e0e0e0;
 }
 
-.kuraberu-items {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.kuraberu-search-btn {
+  background: #0064d2;
+  color: white;
 }
 
-.kuraberu-item {
-  display: flex;
-  align-items: center;
-  padding: 8px 10px;
-  background: #f9f9f9;
+.kuraberu-search-btn:hover {
+  background: #0055b3;
+}
+
+/* メッセージ */
+.kuraberu-message {
+  margin-top: 12px;
+  padding: 10px 12px;
   border-radius: 6px;
-  font-size: 13px;
-}
-
-.kuraberu-item-japan {
-  background: #fff5f5;
-  border: 1px solid #ffcccc;
-}
-
-.kuraberu-item-price {
-  font-weight: 600;
-  color: #0064d2;
-  min-width: 70px;
-}
-
-.kuraberu-item-date {
-  flex: 1;
-  color: #666;
   font-size: 12px;
+  line-height: 1.5;
 }
 
-.kuraberu-item-jp {
-  font-size: 14px;
+.kuraberu-message:empty {
+  display: none;
 }
 
-/* 結果なし */
-.kuraberu-no-results {
-  text-align: center;
-  padding: 24px;
+.kuraberu-message-success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.kuraberu-message-warning {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.kuraberu-message-error {
+  background: #ffebee;
+  color: #c62828;
+}
+
+/* ローディングテキスト */
+.kuraberu-loading-text {
   color: #666;
-}
-
-.kuraberu-no-results p {
-  margin: 8px 0;
-}
-
-/* エラー */
-.kuraberu-error {
-  padding: 16px;
-  background: #fff5f5;
-  border-radius: 8px;
-  color: #d32f2f;
-  text-align: center;
 }
