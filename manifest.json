@@ -31,6 +31,18 @@
       ],
       "js": ["content.js"],
       "css": ["styles.css"]
+    },
+    {
+      "matches": [
+        "https://www.ebay.com/sch/*"
+      ],
+      "js": ["ebay-analyzer.js"]
+    },
+    {
+      "matches": [
+        "https://www.ebay.com/sh/research*"
+      ],
+      "js": ["terapeak-analyzer.js"]
     }
   ]
 }
