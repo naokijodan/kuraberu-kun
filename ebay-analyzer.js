@@ -26,14 +26,24 @@
   function extractPrices() {
     const prices = [];
 
-    // eBayのアイテムコンテナを取得
+    // eBayのアイテムコンテナを取得（最初のプレースホルダーをスキップ）
     const items = document.querySelectorAll('.s-item');
 
-    items.forEach(item => {
-      // 価格要素を探す
-      const priceEl = item.querySelector('.s-item__price');
+    items.forEach((item, index) => {
+      // 最初のアイテムはプレースホルダーの場合があるのでスキップ
+      if (index === 0 && !item.querySelector('.s-item__link')) {
+        return;
+      }
+
+      // 価格要素を探す（複数のセレクタを試す）
+      const priceEl = item.querySelector('.s-item__price span.POSITIVE') ||
+                      item.querySelector('.s-item__price span.BOLD') ||
+                      item.querySelector('.s-item__price span') ||
+                      item.querySelector('.s-item__price');
+
       if (priceEl) {
         const priceText = priceEl.textContent.trim();
+        console.log('[くらべる君 eBay] 価格テキスト:', priceText);
         const price = parsePriceText(priceText);
         // 妥当な価格範囲（$0.01〜$100,000）
         if (price > 0 && price < 100000) {
@@ -42,16 +52,33 @@
       }
     });
 
-    // フォールバック: 直接価格要素を探す
+    // フォールバック: spanタグ内の価格を直接探す
     if (prices.length === 0) {
-      const priceElements = document.querySelectorAll('.s-item__price');
-      priceElements.forEach(el => {
+      const priceSpans = document.querySelectorAll('.s-item__price span');
+      priceSpans.forEach(el => {
         const priceText = el.textContent.trim();
-        const price = parsePriceText(priceText);
-        if (price > 0 && price < 100000) {
-          prices.push(price);
+        // $で始まる価格のみ
+        if (priceText.startsWith('$')) {
+          const price = parsePriceText(priceText);
+          if (price > 0 && price < 100000) {
+            prices.push(price);
+          }
         }
       });
+    }
+
+    // 最終フォールバック: ページ全体から$価格パターンを探す
+    if (prices.length === 0) {
+      const allText = document.body.innerText;
+      const priceMatches = allText.match(/\$[\d,]+\.\d{2}/g);
+      if (priceMatches) {
+        priceMatches.forEach(match => {
+          const price = parsePriceText(match);
+          if (price > 0 && price < 100000) {
+            prices.push(price);
+          }
+        });
+      }
     }
 
     console.log('[くらべる君 eBay] 抽出した価格:', prices.length, '件');

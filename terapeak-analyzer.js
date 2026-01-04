@@ -25,68 +25,52 @@
   function extractPrices() {
     const prices = [];
 
-    // テラピークの価格セレクタ（テーブル内の価格列）
-    const priceSelectors = [
-      'table tbody tr td:nth-child(3)', // 価格列（通常3列目）
-      '[data-testid="price"]',
-      '.research-table-price',
-      'td[class*="price"]'
-    ];
+    // テラピークのテーブル行を探す（各行が1つの販売記録）
+    const rows = document.querySelectorAll('table tbody tr');
 
-    // まずテーブル行を探す
-    const rows = document.querySelectorAll('table tbody tr, [class*="research"] tr');
+    console.log('[くらべる君 テラピーク] テーブル行数:', rows.length);
 
     if (rows.length > 0) {
-      rows.forEach(row => {
-        // 各行から価格っぽいセルを探す
+      rows.forEach((row, index) => {
+        // 各行から最初の$価格のみを取得（販売価格）
         const cells = row.querySelectorAll('td');
-        cells.forEach(cell => {
+        let foundPrice = false;
+
+        for (const cell of cells) {
+          if (foundPrice) break;
+
           const text = cell.textContent.trim();
-          // $で始まる価格を探す
-          if (text.startsWith('$') || text.match(/^\$?[\d,]+\.\d{2}$/)) {
+          // $で始まる価格を探す（最初の1つのみ）
+          if (text.startsWith('$') && text.match(/^\$[\d,]+\.\d{2}$/)) {
             const price = parsePriceText(text);
-            if (price > 0 && price < 100000) { // 妥当な価格範囲
+            if (price > 0 && price < 100000) {
               prices.push(price);
+              foundPrice = true;
+              console.log('[くらべる君 テラピーク] 行', index, '価格:', text);
             }
           }
-        });
+        }
       });
     }
 
-    // テーブルで見つからない場合は汎用セレクタ
+    // テーブルで見つからない場合、リスト形式を探す
     if (prices.length === 0) {
-      for (const selector of priceSelectors) {
-        const elements = document.querySelectorAll(selector);
-        elements.forEach(el => {
-          const text = el.textContent.trim();
-          const price = parsePriceText(text);
+      // テラピークのカード/リスト形式
+      const listItems = document.querySelectorAll('[class*="listing"], [class*="item"], [class*="card"]');
+      listItems.forEach(item => {
+        const priceMatch = item.textContent.match(/\$[\d,]+\.\d{2}/);
+        if (priceMatch) {
+          const price = parsePriceText(priceMatch[0]);
           if (price > 0 && price < 100000) {
             prices.push(price);
           }
-        });
-        if (prices.length > 0) break;
-      }
+        }
+      });
     }
 
-    // さらに見つからない場合、ページ全体から$価格を探す
-    if (prices.length === 0) {
-      const allText = document.body.innerText;
-      const priceMatches = allText.match(/\$[\d,]+\.\d{2}/g);
-      if (priceMatches) {
-        priceMatches.forEach(match => {
-          const price = parsePriceText(match);
-          if (price > 0 && price < 100000) {
-            prices.push(price);
-          }
-        });
-      }
-    }
-
-    // 重複を除去
-    const uniquePrices = [...new Set(prices)];
-
-    console.log('[くらべる君 テラピーク] 抽出した価格:', uniquePrices.length, '件');
-    return uniquePrices;
+    // 重複は除去しない（同じ価格で複数売れた可能性がある）
+    console.log('[くらべる君 テラピーク] 抽出した価格:', prices.length, '件');
+    return prices;
   }
 
   /**
