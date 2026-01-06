@@ -7,36 +7,102 @@
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const OPENAI_MODEL = 'gpt-4o-mini';
 
-// eBay検索キーワード生成用プロンプト
-const EBAY_KEYWORD_PROMPT = `日本語の商品情報を英語のeBay検索キーワードに変換してください。
+// 翻訳オプションの定義
+const TRANSLATION_OPTIONS = {
+  brand: { ja: 'ブランド名', en: 'brand name', example_ja: 'エルメス、ルイヴィトン', example_en: 'Hermes, Louis Vuitton' },
+  category: { ja: 'カテゴリ', en: 'category/product type', example_ja: 'スカーフ、財布、バッグ', example_en: 'scarf, wallet, bag' },
+  material: { ja: '素材', en: 'material', example_ja: 'シルク、レザー、コットン', example_en: 'silk, leather, cotton' },
+  model: { ja: '型番/モデル名', en: 'model number/name', example_ja: 'カレ90、ネヴァーフル', example_en: 'Carre 90, Neverfull' },
+  character: { ja: 'キャラクター名', en: 'character name', example_ja: 'ピカチュウ、リザードン', example_en: 'Pikachu, Charizard' },
+  color: { ja: '色', en: 'color', example_ja: '赤、黒、ネイビー', example_en: 'red, black, navy' },
+  size: { ja: 'サイズ', en: 'size', example_ja: 'M、L、90cm', example_en: 'M, L, 90cm' },
+  rarity: { ja: 'レアリティ', en: 'rarity', example_ja: 'SR、SSR、レア', example_en: 'SR, SSR, rare' }
+};
 
-【ルール】
-- どんな商品でも対応（ブランド品、カード、ゲーム、家電、何でもOK）
-- ブランド名・商品名・キャラクター名は英語表記に変換
-- 3〜5語のキーワードを生成
-- 状態（美品等）、送料、サイズ詳細は除外
+/**
+ * 選択されたオプションからeBay用プロンプトを生成
+ */
+function buildEbayPrompt(selectedOptions) {
+  const allOptions = ['brand', 'category', 'material', 'model', 'character', 'color', 'size', 'rarity'];
+
+  const includeTexts = selectedOptions.map(opt => {
+    const info = TRANSLATION_OPTIONS[opt];
+    return info ? `- ${info.en}` : null;
+  }).filter(Boolean);
+
+  const excludeOptions = allOptions.filter(opt => !selectedOptions.includes(opt));
+  const excludeTexts = excludeOptions.map(opt => {
+    const info = TRANSLATION_OPTIONS[opt];
+    return info ? `- ${info.en}（${info.example_en}）` : null;
+  }).filter(Boolean);
+
+  if (includeTexts.length === 0) {
+    includeTexts.push('- brand name', '- category/product type');
+  }
+
+  return `日本語の商品情報を英語のeBay検索キーワードに変換してください。
+
+【含める要素】
+${includeTexts.join('\n')}
+
+【絶対に含めない要素】
+${excludeTexts.join('\n')}
+- 状態（美品、未使用等）
+- 送料、販売条件
+
+【重要】
+含める要素に指定されたものだけを出力してください。
+絶対に含めない要素に該当する情報は、元のタイトルに含まれていても出力しないでください。
 
 【出力形式】
 英語キーワードのみを1行で出力。説明や前置きは不要。
 
 【入力】
 `;
+}
 
-// メルカリ検索キーワード生成用プロンプト（英語→日本語）
-const MERCARI_KEYWORD_PROMPT = `英語の商品タイトルを日本語のメルカリ検索キーワードに変換してください。
+/**
+ * 選択されたオプションからメルカリ用プロンプトを生成
+ */
+function buildMercariPrompt(selectedOptions) {
+  const allOptions = ['brand', 'category', 'material', 'model', 'character', 'color', 'size', 'rarity'];
 
-【ルール】
-- ブランド名はカタカナまたは英語のまま（例: Hermes→エルメス、Louis Vuitton→ルイヴィトン）
-- 商品の種類を日本語に（例: scarf→スカーフ、wallet→財布、bag→バッグ）
-- 2〜4語程度の検索しやすいキーワードに
-- 状態（New, Used等）、色、サイズ詳細は除外
-- 「送料無料」「美品」などの販売条件は含めない
+  const includeTexts = selectedOptions.map(opt => {
+    const info = TRANSLATION_OPTIONS[opt];
+    return info ? `- ${info.ja}` : null;
+  }).filter(Boolean);
+
+  const excludeOptions = allOptions.filter(opt => !selectedOptions.includes(opt));
+  const excludeTexts = excludeOptions.map(opt => {
+    const info = TRANSLATION_OPTIONS[opt];
+    return info ? `- ${info.ja}（${info.example_ja}）` : null;
+  }).filter(Boolean);
+
+  if (includeTexts.length === 0) {
+    includeTexts.push('- ブランド名', '- カテゴリ');
+  }
+
+  return `英語の商品タイトルを日本語のメルカリ検索キーワードに変換してください。
+
+【含める要素】
+${includeTexts.join('\n')}
+
+【絶対に含めない要素】
+${excludeTexts.join('\n')}
+- 状態（New, Used, 美品等）
+- 送料、販売条件
+
+【重要】
+含める要素に指定されたものだけを出力してください。
+絶対に含めない要素に該当する情報は、元のタイトルに含まれていても出力しないでください。
+ブランド名はカタカナ表記（例: Hermes→エルメス）、カテゴリは日本語（例: cardigan→カーディガン）に変換。
 
 【出力形式】
 日本語キーワードのみを1行で出力。説明や前置きは不要。
 
 【入力】
 `;
+}
 
 // メッセージリスナー
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -44,7 +110,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === 'generateKeyword') {
     // OpenAI APIでキーワード生成（タイトル＋説明）
-    generateEbayKeyword(request.title, request.description)
+    // options: 選択された要素の配列（例: ['brand', 'category', 'material']）
+    generateEbayKeyword(request.title, request.description, request.options || ['brand', 'category'])
       .then(keyword => sendResponse({ success: true, keyword }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // 非同期レスポンス
@@ -52,7 +119,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === 'generateMercariKeyword') {
     // OpenAI APIでメルカリ検索キーワード生成（英語→日本語）
-    generateMercariKeyword(request.title)
+    // options: 選択された要素の配列（例: ['brand', 'category', 'material']）
+    generateMercariKeyword(request.title, request.options || ['brand', 'category'])
       .then(keyword => sendResponse({ success: true, keyword }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // 非同期レスポンス
@@ -99,8 +167,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 /**
  * OpenAI APIでeBay検索キーワードを生成
+ * @param {string} title - 商品タイトル
+ * @param {string} description - 商品説明
+ * @param {Array} options - 選択された要素の配列（例: ['brand', 'category', 'material']）
  */
-async function generateEbayKeyword(title, description = '') {
+async function generateEbayKeyword(title, description = '', options = ['brand', 'category']) {
   // APIキーを取得
   const result = await chrome.storage.sync.get(['openaiApiKey']);
   const apiKey = result.openaiApiKey;
@@ -112,12 +183,16 @@ async function generateEbayKeyword(title, description = '') {
   console.log('[しらべる君 BG] OpenAI API呼び出し開始');
   console.log('[しらべる君 BG] タイトル:', title);
   console.log('[しらべる君 BG] 説明:', description?.substring(0, 100));
+  console.log('[しらべる君 BG] 選択オプション:', options);
 
   // タイトルと説明を組み合わせた入力を作成
   let inputText = `タイトル: ${title}`;
   if (description && description.trim()) {
     inputText += `\n\n説明文: ${description}`;
   }
+
+  // 選択されたオプションからプロンプトを生成
+  const prompt = buildEbayPrompt(options);
 
   const response = await fetch(OPENAI_API_URL, {
     method: 'POST',
@@ -130,7 +205,7 @@ async function generateEbayKeyword(title, description = '') {
       messages: [
         {
           role: 'user',
-          content: EBAY_KEYWORD_PROMPT + inputText
+          content: prompt + inputText
         }
       ],
       max_tokens: 100,
@@ -157,8 +232,10 @@ async function generateEbayKeyword(title, description = '') {
 
 /**
  * OpenAI APIでメルカリ検索キーワードを生成（英語→日本語）
+ * @param {string} title - 英語の商品タイトル
+ * @param {Array} options - 選択された要素の配列（例: ['brand', 'category', 'material']）
  */
-async function generateMercariKeyword(title) {
+async function generateMercariKeyword(title, options = ['brand', 'category']) {
   // APIキーを取得
   const result = await chrome.storage.sync.get(['openaiApiKey']);
   const apiKey = result.openaiApiKey;
@@ -169,6 +246,10 @@ async function generateMercariKeyword(title) {
 
   console.log('[しらべる君 BG] メルカリキーワード生成開始');
   console.log('[しらべる君 BG] 英語タイトル:', title);
+  console.log('[しらべる君 BG] 選択オプション:', options);
+
+  // 選択されたオプションからプロンプトを生成
+  const prompt = buildMercariPrompt(options);
 
   const response = await fetch(OPENAI_API_URL, {
     method: 'POST',
@@ -181,7 +262,7 @@ async function generateMercariKeyword(title) {
       messages: [
         {
           role: 'user',
-          content: MERCARI_KEYWORD_PROMPT + title
+          content: prompt + title
         }
       ],
       max_tokens: 100,

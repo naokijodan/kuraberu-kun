@@ -10,18 +10,18 @@ Shiraberu-kun - eBay Price Research
 
 ## 簡単な説明（132文字以内）
 
-メルカリ商品のeBay市場価格を瞬時にリサーチ。Sold Listings分析、テラピーク連携、AI翻訳機能搭載。輸出ビジネスの仕入れ判断を強力サポート。
+メルカリ⇔eBay双方向リサーチツール。価格分析、テラピーク連携、AI翻訳機能で輸出入ビジネスの仕入れ判断を強力サポート。
 
 ## Short Description (132 characters max)
 
-Instantly research eBay market prices for Mercari products. Sold Listings analysis, Terapeak integration, AI translation included.
+Mercari⇔eBay bidirectional research tool. Price analysis, Terapeak integration, AI translation for import/export business.
 
 ---
 
 ## 詳細な説明
 
 ### 概要
-「しらべる君」は、メルカリで見つけた商品のeBay市場価格を瞬時にリサーチできるChrome拡張機能です。輸出転売ビジネスにおける仕入れ判断をサポートし、効率的な価格調査を実現します。
+「しらべる君」は、メルカリ⇔eBay間の双方向価格リサーチができるChrome拡張機能です。メルカリで見つけた商品のeBay市場価格を調査（輸出リサーチ）、またはeBayの商品をメルカリで仕入れられるか調査（輸入リサーチ）が可能。輸出入ビジネスの仕入れ判断を強力サポートします。
 
 ### 主な機能
 
@@ -47,9 +47,16 @@ Instantly research eBay market prices for Mercari products. Sold Listings analys
 - 輸入仕入れリサーチにも対応
 
 ### 使い方
+
+**📦 メルカリ → eBay（輸出リサーチ）**
 1. メルカリ商品ページで「🔍 eBay調査」ボタンをクリック
 2. eBay Sold Listingsページで価格統計を確認
 3. テラピークでより詳細な販売データを分析
+
+**🇯🇵 eBay → メルカリ（輸入リサーチ）**
+1. eBay商品ページで「🔍 市場調査」ボタンをクリック
+2. AI翻訳で日本語キーワードを生成
+3. メルカリで仕入れ価格を確認
 
 ### AI翻訳機能について
 - OpenAI APIキーを設定することで、より精度の高いキーワード翻訳が利用可能
@@ -65,7 +72,7 @@ Instantly research eBay market prices for Mercari products. Sold Listings analys
 ## Detailed Description (English)
 
 ### Overview
-"Shiraberu-kun" is a Chrome extension that instantly researches eBay market prices for products found on Mercari. It supports purchasing decisions in export resale business and enables efficient price research.
+"Shiraberu-kun" is a Chrome extension for bidirectional price research between Mercari and eBay. Research eBay market prices for products found on Mercari (export research), or find Mercari sourcing options for eBay products (import research). Powerfully supports purchasing decisions in import/export business.
 
 ### Key Features
 
@@ -91,9 +98,16 @@ Instantly research eBay market prices for Mercari products. Sold Listings analys
 - Also supports import sourcing research
 
 ### How to Use
+
+**📦 Mercari → eBay (Export Research)**
 1. Click the "🔍 eBay Research" button on a Mercari product page
 2. Check price statistics on the eBay Sold Listings page
 3. Analyze more detailed sales data on Terapeak
+
+**🇯🇵 eBay → Mercari (Import Research)**
+1. Click the "🔍 Market Research" button on an eBay product page
+2. Generate Japanese keywords with AI translation
+3. Check sourcing prices on Mercari
 
 ### About AI Translation
 - More accurate keyword translation available by setting up OpenAI API key

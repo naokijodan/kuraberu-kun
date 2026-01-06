@@ -191,7 +191,19 @@
         <div class="kuraberu-section">
           <label>検索キーワード（英語で入力）:</label>
           <input type="text" class="kuraberu-keyword-input" placeholder="例: Hermes scarf silk">
-          <div class="kuraberu-hint">💡 ブランド名＋商品種類を英語で入力してください</div>
+        </div>
+        <div class="kuraberu-options-section">
+          <label>翻訳に含める要素:</label>
+          <div class="kuraberu-options-grid">
+            <label class="kuraberu-option"><input type="checkbox" value="brand" checked><span>ブランド</span></label>
+            <label class="kuraberu-option"><input type="checkbox" value="category" checked><span>カテゴリ</span></label>
+            <label class="kuraberu-option"><input type="checkbox" value="material"><span>素材</span></label>
+            <label class="kuraberu-option"><input type="checkbox" value="model"><span>型番</span></label>
+            <label class="kuraberu-option"><input type="checkbox" value="character"><span>キャラ名</span></label>
+            <label class="kuraberu-option"><input type="checkbox" value="color"><span>色</span></label>
+            <label class="kuraberu-option"><input type="checkbox" value="size"><span>サイズ</span></label>
+            <label class="kuraberu-option"><input type="checkbox" value="rarity"><span>レアリティ</span></label>
+          </div>
         </div>
         <div class="kuraberu-buttons">
           <button class="kuraberu-ai-btn">🤖 AI翻訳</button>
@@ -214,9 +226,21 @@
     // 閉じるボタン
     panel.querySelector('.kuraberu-panel-close').addEventListener('click', closePanel);
 
+    // 選択されたオプションを取得する関数
+    function getSelectedOptions() {
+      const checkboxes = panel.querySelectorAll('.kuraberu-options-grid input[type="checkbox"]:checked');
+      return Array.from(checkboxes).map(cb => cb.value);
+    }
+
     // AI翻訳ボタン
     panel.querySelector('.kuraberu-ai-btn').addEventListener('click', () => {
-      generateKeywordWithAI(originalTitle, originalDescription, panel);
+      const selectedOptions = getSelectedOptions();
+      console.log('[しらべる君] AI翻訳クリック - 選択オプション:', selectedOptions);
+      if (selectedOptions.length === 0) {
+        showMessage(panel, '⚠️ 少なくとも1つの要素を選択してください', 'warning');
+        return;
+      }
+      generateKeywordWithAI(originalTitle, originalDescription, panel, selectedOptions);
     });
 
     // eBay検索ボタン
@@ -255,8 +279,12 @@
 
   /**
    * AIでeBay検索キーワードを生成
+   * @param {string} title - 商品タイトル
+   * @param {string} description - 商品説明
+   * @param {HTMLElement} panel - パネル要素
+   * @param {Array} options - 選択された要素の配列（例: ['brand', 'category']）
    */
-  async function generateKeywordWithAI(title, description, panel) {
+  async function generateKeywordWithAI(title, description, panel, options = ['brand', 'category']) {
     const messageEl = panel.querySelector('.kuraberu-message');
     const inputEl = panel.querySelector('.kuraberu-keyword-input');
     const aiBtn = panel.querySelector('.kuraberu-ai-btn');
@@ -264,7 +292,7 @@
     // ボタンを無効化
     aiBtn.disabled = true;
     aiBtn.textContent = '🔄 生成中...';
-    messageEl.innerHTML = '<span class="kuraberu-loading-text">🤖 AIがキーワードを生成しています...</span>';
+    messageEl.innerHTML = `<span class="kuraberu-loading-text">🤖 AIが翻訳中...（${options.length}要素）</span>`;
     messageEl.className = 'kuraberu-message';
 
     try {
@@ -283,11 +311,12 @@
         return;
       }
 
-      // バックグラウンドでキーワード生成（タイトル＋説明を送信）
+      // バックグラウンドでキーワード生成（タイトル＋説明＋オプションを送信）
       const result = await chrome.runtime.sendMessage({
         action: 'generateKeyword',
         title: title,
-        description: description || ''
+        description: description || '',
+        options: options
       });
 
       if (result.success) {
@@ -446,6 +475,10 @@
    */
   function init() {
     console.log('[しらべる君] 初期化開始');
+
+    // ページリロード時に古いUI要素をクリーンアップ
+    document.querySelectorAll('.kuraberu-btn, .kuraberu-panel').forEach(el => el.remove());
+    currentPanel = null;
 
     if (!isProductPage()) {
       console.log('[しらべる君] 商品ページではないためスキップ');

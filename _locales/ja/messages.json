@@ -4,7 +4,7 @@
     "description": "Extension name"
   },
   "extDescription": {
-    "message": "メルカリ商品のeBay市場価格を瞬時にリサーチ。Sold Listings分析、テラピーク連携、AI翻訳機能搭載。",
+    "message": "メルカリ⇔eBay双方向リサーチ。価格分析、テラピーク連携、AI翻訳で輸出入ビジネスをサポート。",
     "description": "Extension description"
   }
 }

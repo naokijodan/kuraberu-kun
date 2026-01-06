@@ -198,6 +198,44 @@
                 box-sizing: border-box;
               ">
             </div>
+            <!-- 翻訳オプション -->
+            <div style="margin-bottom: 8px;">
+              <div style="font-size: 11px; color: #666; margin-bottom: 6px;">翻訳に含める要素:</div>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;" class="kuraberu-mercari-options">
+                <label style="display: flex; align-items: center; gap: 3px; padding: 4px 6px; background: #fff; border: 1px solid #ffcccb; border-radius: 4px; cursor: pointer; font-size: 10px;">
+                  <input type="checkbox" value="brand" checked style="width: 12px; height: 12px; accent-color: #ea352d;">
+                  <span>ブランド</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 3px; padding: 4px 6px; background: #fff; border: 1px solid #ffcccb; border-radius: 4px; cursor: pointer; font-size: 10px;">
+                  <input type="checkbox" value="category" checked style="width: 12px; height: 12px; accent-color: #ea352d;">
+                  <span>カテゴリ</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 3px; padding: 4px 6px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 10px; color: #333;">
+                  <input type="checkbox" value="material" style="width: 12px; height: 12px; accent-color: #ea352d;">
+                  <span>素材</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 3px; padding: 4px 6px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 10px; color: #333;">
+                  <input type="checkbox" value="model" style="width: 12px; height: 12px; accent-color: #ea352d;">
+                  <span>型番</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 3px; padding: 4px 6px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 10px; color: #333;">
+                  <input type="checkbox" value="character" style="width: 12px; height: 12px; accent-color: #ea352d;">
+                  <span>キャラ名</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 3px; padding: 4px 6px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 10px; color: #333;">
+                  <input type="checkbox" value="color" style="width: 12px; height: 12px; accent-color: #ea352d;">
+                  <span>色</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 3px; padding: 4px 6px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 10px; color: #333;">
+                  <input type="checkbox" value="size" style="width: 12px; height: 12px; accent-color: #ea352d;">
+                  <span>サイズ</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 3px; padding: 4px 6px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 10px; color: #333;">
+                  <input type="checkbox" value="rarity" style="width: 12px; height: 12px; accent-color: #ea352d;">
+                  <span>レアリティ</span>
+                </label>
+              </div>
+            </div>
             <div style="display: flex; gap: 6px;">
               <button class="kuraberu-ai-translate-btn" style="
                 flex: 1;
@@ -271,9 +309,20 @@
       }
     });
 
+    // 選択されたメルカリ翻訳オプションを取得する関数
+    function getMercariSelectedOptions() {
+      const checkboxes = panel.querySelectorAll('.kuraberu-mercari-options input[type="checkbox"]:checked');
+      return Array.from(checkboxes).map(cb => cb.value);
+    }
+
     // メルカリ検索ボタン
     panel.querySelector('.kuraberu-ai-translate-btn').addEventListener('click', () => {
-      generateMercariKeyword(title, panel);
+      const selectedOptions = getMercariSelectedOptions();
+      if (selectedOptions.length === 0) {
+        showMessage(panel, '⚠️ 少なくとも1つの要素を選択してください', 'warning');
+        return;
+      }
+      generateMercariKeyword(title, panel, selectedOptions);
     });
 
     panel.querySelector('.kuraberu-mercari-btn').addEventListener('click', () => {
@@ -298,8 +347,11 @@
 
   /**
    * AIでメルカリ検索キーワードを生成
+   * @param {string} title - 英語の商品タイトル
+   * @param {HTMLElement} panel - パネル要素
+   * @param {Array} options - 選択された要素の配列（例: ['brand', 'category']）
    */
-  async function generateMercariKeyword(title, panel) {
+  async function generateMercariKeyword(title, panel, options = ['brand', 'category']) {
     const messageEl = panel.querySelector('.kuraberu-message');
     const inputEl = panel.querySelector('.kuraberu-mercari-keyword');
     const aiBtn = panel.querySelector('.kuraberu-ai-translate-btn');
@@ -307,7 +359,7 @@
     // ボタンを無効化
     aiBtn.disabled = true;
     aiBtn.textContent = '🔄 翻訳中...';
-    messageEl.textContent = '🤖 AIが日本語キーワードを生成しています...';
+    messageEl.textContent = `🤖 AIが翻訳中...（${options.length}要素）`;
     messageEl.style.color = '#666';
 
     try {
@@ -319,10 +371,11 @@
         return;
       }
 
-      // バックグラウンドでキーワード生成
+      // バックグラウンドでキーワード生成（オプションを送信）
       const result = await chrome.runtime.sendMessage({
         action: 'generateMercariKeyword',
-        title: title
+        title: title,
+        options: options
       });
 
       if (result.success) {
@@ -500,6 +553,10 @@
    * 初期化
    */
   function init() {
+    // ページリロード時に古いUI要素をクリーンアップ
+    document.querySelectorAll('.kuraberu-ebay-btn, .kuraberu-ebay-panel').forEach(el => el.remove());
+    currentPanel = null;
+
     if (!isProductPage()) {
       console.log('[しらべる君 eBay商品] 商品ページではありません');
       return;
