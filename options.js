@@ -39,86 +39,62 @@ const DEFAULT_SETTINGS = {
   dhlExtraPer500g: 96
 };
 
-// 送料テーブル
+// 送料テーブル（元の価格計算ツールから取得）
 const SHIPPING_RATE_TABLE = {
-  EP: [
-    { min: 0, max: 50, yen: 510 },
-    { min: 51, max: 100, yen: 610 },
-    { min: 101, max: 150, yen: 710 },
-    { min: 151, max: 200, yen: 810 },
-    { min: 201, max: 250, yen: 910 },
-    { min: 251, max: 300, yen: 1010 },
-    { min: 301, max: 400, yen: 1160 },
-    { min: 401, max: 500, yen: 1310 },
-    { min: 501, max: 600, yen: 1460 },
-    { min: 601, max: 700, yen: 1610 },
-    { min: 701, max: 800, yen: 1760 },
-    { min: 801, max: 900, yen: 1910 },
-    { min: 901, max: 1000, yen: 2060 },
-    { min: 1001, max: 1250, yen: 2320 },
-    { min: 1251, max: 1500, yen: 2610 },
-    { min: 1501, max: 1750, yen: 2890 },
-    { min: 1751, max: 2000, yen: 3170 }
+  EP: [ // eパケット
+    { min: 1, max: 100, yen: 1200 }, { min: 101, max: 200, yen: 1410 }, { min: 201, max: 300, yen: 1620 },
+    { min: 301, max: 400, yen: 1830 }, { min: 401, max: 500, yen: 2040 }, { min: 501, max: 600, yen: 2250 },
+    { min: 601, max: 700, yen: 2460 }, { min: 701, max: 800, yen: 2670 }, { min: 801, max: 900, yen: 2880 },
+    { min: 901, max: 1000, yen: 3090 }, { min: 1001, max: 1100, yen: 3300 }, { min: 1101, max: 1200, yen: 3510 },
+    { min: 1201, max: 1300, yen: 3720 }, { min: 1301, max: 1400, yen: 3930 }, { min: 1401, max: 1500, yen: 4140 },
+    { min: 1501, max: 1600, yen: 4350 }, { min: 1601, max: 1700, yen: 4560 }, { min: 1701, max: 1800, yen: 4770 },
+    { min: 1801, max: 1900, yen: 4980 }, { min: 1901, max: 2000, yen: 5190 }
   ],
-  CF: [
-    { min: 0, max: 500, yen: 2900 },
-    { min: 501, max: 1000, yen: 3390 },
-    { min: 1001, max: 1500, yen: 3880 },
-    { min: 1501, max: 2000, yen: 4370 },
-    { min: 2001, max: 2500, yen: 4860 },
-    { min: 2501, max: 3000, yen: 5350 },
-    { min: 3001, max: 3500, yen: 5840 },
-    { min: 3501, max: 4000, yen: 6330 },
-    { min: 4001, max: 4500, yen: 6820 },
-    { min: 4501, max: 5000, yen: 7310 }
+  CF: [ // Cpass-FedEx
+    { min: 1, max: 1000, yen: 1984 }, { min: 1001, max: 1500, yen: 2439 }, { min: 1501, max: 2000, yen: 2666 },
+    { min: 2001, max: 2500, yen: 2918 }, { min: 2501, max: 3000, yen: 3173 }, { min: 3001, max: 3500, yen: 3329 },
+    { min: 3501, max: 4000, yen: 3382 }, { min: 4001, max: 4500, yen: 3786 }, { min: 4501, max: 5000, yen: 4188 },
+    { min: 5001, max: 5500, yen: 4495 }, { min: 5501, max: 6000, yen: 4805 }, { min: 6001, max: 6500, yen: 5114 },
+    { min: 6501, max: 7000, yen: 5465 }, { min: 7001, max: 7500, yen: 5893 }, { min: 7501, max: 8000, yen: 6267 },
+    { min: 8001, max: 8500, yen: 6444 }, { min: 8501, max: 9000, yen: 6621 }, { min: 9001, max: 9500, yen: 6797 },
+    { min: 9501, max: 10000, yen: 8327 }, { min: 10001, max: 30000, yen: 31920 }
   ],
-  CD: [
-    { min: 0, max: 500, yen: 3360 },
-    { min: 501, max: 1000, yen: 3740 },
-    { min: 1001, max: 1500, yen: 4120 },
-    { min: 1501, max: 2000, yen: 4500 },
-    { min: 2001, max: 2500, yen: 4880 },
-    { min: 2501, max: 3000, yen: 5260 },
-    { min: 3001, max: 3500, yen: 5640 },
-    { min: 3501, max: 4000, yen: 6020 },
-    { min: 4001, max: 4500, yen: 6400 },
-    { min: 4501, max: 5000, yen: 6780 }
+  CD: [ // Cpass-DHL
+    { min: 1, max: 1000, yen: 2191 }, { min: 1001, max: 1500, yen: 2482 }, { min: 1501, max: 2000, yen: 2588 },
+    { min: 2001, max: 2500, yen: 2719 }, { min: 2501, max: 3000, yen: 3040 }, { min: 3001, max: 3500, yen: 3358 },
+    { min: 3501, max: 4000, yen: 3753 }, { min: 4001, max: 4500, yen: 4079 }, { min: 4501, max: 5000, yen: 4406 },
+    { min: 5001, max: 5500, yen: 4732 }, { min: 5501, max: 6000, yen: 5058 }, { min: 6001, max: 6500, yen: 5383 },
+    { min: 6501, max: 7000, yen: 5753 }, { min: 7001, max: 7500, yen: 6203 }, { min: 7501, max: 8000, yen: 6652 },
+    { min: 8001, max: 8500, yen: 7102 }, { min: 8501, max: 9000, yen: 7550 }, { min: 9001, max: 9500, yen: 7999 },
+    { min: 9501, max: 10000, yen: 8449 }, { min: 10001, max: 30000, yen: 31343 }
   ],
-  EL: [
-    { min: 0, max: 500, yen: 1830 },
-    { min: 501, max: 1000, yen: 2380 },
-    { min: 1001, max: 1500, yen: 2930 },
-    { min: 1501, max: 2000, yen: 3480 },
-    { min: 2001, max: 2500, yen: 4030 },
-    { min: 2501, max: 3000, yen: 4580 },
-    { min: 3001, max: 3500, yen: 5130 },
-    { min: 3501, max: 4000, yen: 5680 },
-    { min: 4001, max: 4500, yen: 6230 },
-    { min: 4501, max: 5000, yen: 6780 }
+  EL: [ // eLogistics
+    { min: 1, max: 1000, yen: 3700 }, { min: 1001, max: 1500, yen: 3900 }, { min: 1501, max: 2000, yen: 4100 },
+    { min: 2001, max: 2500, yen: 4300 }, { min: 2501, max: 3000, yen: 5600 }, { min: 3001, max: 3500, yen: 5900 },
+    { min: 3501, max: 4000, yen: 6300 }, { min: 4001, max: 4500, yen: 6600 }, { min: 4501, max: 5000, yen: 7200 },
+    { min: 5001, max: 5500, yen: 7900 }, { min: 5501, max: 6000, yen: 8700 }, { min: 6001, max: 6500, yen: 10300 },
+    { min: 6501, max: 7000, yen: 12200 }, { min: 7001, max: 7500, yen: 14100 }, { min: 7501, max: 8000, yen: 16000 },
+    { min: 8001, max: 8500, yen: 17900 }, { min: 8501, max: 9000, yen: 19800 }, { min: 9001, max: 9500, yen: 21800 },
+    { min: 9501, max: 10000, yen: 23700 }, { min: 10001, max: 30000, yen: 47200 }
   ],
-  CE: [
-    { min: 0, max: 500, yen: 1290 },
-    { min: 501, max: 1000, yen: 1570 },
-    { min: 1001, max: 1500, yen: 1850 },
-    { min: 1501, max: 2000, yen: 2130 },
-    { min: 2001, max: 2500, yen: 2420 },
-    { min: 2501, max: 3000, yen: 2700 },
-    { min: 3001, max: 3500, yen: 2980 },
-    { min: 3501, max: 4000, yen: 3260 },
-    { min: 4001, max: 4500, yen: 3550 },
-    { min: 4501, max: 5000, yen: 3830 }
+  CE: [ // Cpass-Economy
+    { min: 1, max: 100, yen: 1227 }, { min: 101, max: 200, yen: 1367 }, { min: 201, max: 300, yen: 1581 },
+    { min: 301, max: 400, yen: 1778 }, { min: 401, max: 500, yen: 2060 }, { min: 501, max: 600, yen: 2222 },
+    { min: 601, max: 700, yen: 2321 }, { min: 701, max: 800, yen: 2703 }, { min: 801, max: 900, yen: 2820 },
+    { min: 901, max: 1000, yen: 3020 }, { min: 1001, max: 1100, yen: 3136 }, { min: 1101, max: 1200, yen: 3250 },
+    { min: 1201, max: 1300, yen: 3366 }, { min: 1301, max: 1400, yen: 3704 }, { min: 1401, max: 1500, yen: 3816 },
+    { min: 1501, max: 1600, yen: 3935 }, { min: 1601, max: 1700, yen: 4046 }, { min: 1701, max: 1800, yen: 4165 },
+    { min: 1801, max: 1900, yen: 5056 }, { min: 1901, max: 2000, yen: 5245 }, { min: 2001, max: 2500, yen: 5582 },
+    { min: 2501, max: 3000, yen: 6333 }, { min: 3001, max: 3500, yen: 6958 }, { min: 3501, max: 4000, yen: 7704 },
+    { min: 4001, max: 4500, yen: 9135 }, { min: 4501, max: 5000, yen: 11733 }, { min: 5001, max: 25000, yen: 40955 }
   ],
-  EMS: [
-    { min: 0, max: 500, yen: 3900 },
-    { min: 501, max: 600, yen: 4180 },
-    { min: 601, max: 700, yen: 4460 },
-    { min: 701, max: 800, yen: 4740 },
-    { min: 801, max: 900, yen: 5020 },
-    { min: 901, max: 1000, yen: 5300 },
-    { min: 1001, max: 1250, yen: 5950 },
-    { min: 1251, max: 1500, yen: 6600 },
-    { min: 1501, max: 1750, yen: 7250 },
-    { min: 1751, max: 2000, yen: 7900 }
+  EMS: [ // EMS
+    { min: 1, max: 500, yen: 3900 }, { min: 501, max: 600, yen: 4180 }, { min: 601, max: 700, yen: 4460 },
+    { min: 701, max: 800, yen: 4740 }, { min: 801, max: 900, yen: 5020 }, { min: 901, max: 1000, yen: 5300 },
+    { min: 1001, max: 1250, yen: 5990 }, { min: 1251, max: 1500, yen: 6600 }, { min: 1501, max: 1750, yen: 7290 },
+    { min: 1751, max: 2000, yen: 7900 }, { min: 2001, max: 2500, yen: 9100 }, { min: 2501, max: 3000, yen: 10300 },
+    { min: 3001, max: 3500, yen: 11500 }, { min: 3501, max: 4000, yen: 12700 }, { min: 4001, max: 4500, yen: 13900 },
+    { min: 4501, max: 5000, yen: 15100 }, { min: 5001, max: 30000, yen: 75100 }
   ]
 };
 
