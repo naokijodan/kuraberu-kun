@@ -14,6 +14,119 @@
   let currentButton = null;
   let selectionPopup = null;
   let currentSearchKeyword = ''; // 現在の検索キーワード
+  let isPremiumUser = false; // プレミアムユーザーフラグ
+
+  /**
+   * プレミアム状態をチェック
+   */
+  async function checkPremiumStatus() {
+    try {
+      const data = await chrome.storage.local.get(['shiraberu_secret_code']);
+      const secretCode = data.shiraberu_secret_code;
+      // シークレットコードが有効かチェック
+      isPremiumUser = secretCode && ['MGOOSE2025'].includes(secretCode.trim().toUpperCase());
+      console.log('[しらべる君 eBay] プレミアム状態:', isPremiumUser);
+      return isPremiumUser;
+    } catch (error) {
+      console.error('[しらべる君 eBay] プレミアムチェックエラー:', error);
+      return false;
+    }
+  }
+
+  /**
+   * プレミアム機能の案内パネルを表示
+   */
+  function showPremiumPrompt() {
+    // 既存のパネルを削除
+    if (currentPanel) {
+      currentPanel.remove();
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'kuraberu-ebay-panel';
+    panel.innerHTML = `
+      <div style="
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        width: 320px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        z-index: 10000;
+        overflow: hidden;
+      ">
+        <div style="
+          background: linear-gradient(135deg, #0064d2 0%, #004a9e 100%);
+          color: white;
+          padding: 14px 16px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        ">
+          <span style="font-weight: 600;">🔒 プレミアム機能</span>
+          <button id="kuraberu-close" style="
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+          ">✕</button>
+        </div>
+        <div style="padding: 20px; text-align: center;">
+          <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+          <div style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 12px;">
+            価格分析機能
+          </div>
+          <div style="font-size: 13px; color: #666; margin-bottom: 20px; line-height: 1.6;">
+            価格分析機能はプレミアム会員限定です。<br>
+            スクール会員の方はシークレットコードを入力してください。
+          </div>
+          <div style="
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+          ">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+              <span style="font-size: 20px; margin-right: 10px;">🎫</span>
+              <span style="font-size: 13px; color: #333;">スクール会員の方はシークレットコードを入力</span>
+            </div>
+            <div style="display: flex; align-items: center;">
+              <span style="font-size: 20px; margin-right: 10px;">💳</span>
+              <span style="font-size: 13px; color: #333;">1,000円で全機能を永久解放</span>
+            </div>
+          </div>
+          <button id="kuraberu-go-settings" style="
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #0064d2 0%, #004a9e 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+          ">⚙️ 設定画面へ</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(panel);
+    currentPanel = panel;
+
+    // イベントリスナー
+    document.getElementById('kuraberu-close').addEventListener('click', () => {
+      panel.remove();
+      currentPanel = null;
+    });
+
+    document.getElementById('kuraberu-go-settings').addEventListener('click', () => {
+      chrome.runtime.sendMessage({ action: 'openOptionsPage' });
+    });
+  }
 
   /**
    * eBay Sold Listingsページかどうかを判定
@@ -639,11 +752,18 @@
     const dragState = makeDraggableButton(btn);
 
     // クリック時の処理（ドラッグと区別）
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
       if (dragState.hasMoved()) return;
-      showAnalysisPanel();
+
+      // プレミアム判定
+      const isPremium = await checkPremiumStatus();
+      if (isPremium) {
+        showAnalysisPanel();
+      } else {
+        showPremiumPrompt();
+      }
     });
 
     console.log('[しらべる君 eBay] ボタン追加完了');

@@ -190,9 +190,63 @@
   }
 
   /**
+   * プレミアム状態をチェック（同期版 - キャッシュ使用）
+   */
+  let isPremiumCached = null;
+  async function checkPremiumStatus() {
+    try {
+      const data = await chrome.storage.local.get(['shiraberu_secret_code']);
+      const secretCode = data.shiraberu_secret_code;
+      isPremiumCached = secretCode && ['MGOOSE2025'].includes(secretCode.trim().toUpperCase());
+      console.log('[しらべる君] プレミアム状態:', isPremiumCached);
+      return isPremiumCached;
+    } catch (error) {
+      console.error('[しらべる君] プレミアムチェックエラー:', error);
+      return false;
+    }
+  }
+
+  /**
+   * プレミアム機能の案内HTMLを生成
+   */
+  function generatePremiumPromptSection() {
+    return `
+      <div class="kuraberu-price-calc-section kuraberu-premium-section">
+        <div class="kuraberu-section-header">🔒 価格計算（プレミアム機能）</div>
+        <div style="padding: 16px; text-align: center;">
+          <div style="font-size: 13px; color: #666; margin-bottom: 12px; line-height: 1.6;">
+            価格計算機能はプレミアム会員限定です。<br>
+            スクール会員の方はシークレットコードを入力してください。
+          </div>
+          <div style="background: #f5f5f5; border-radius: 6px; padding: 12px; margin-bottom: 12px; font-size: 12px; text-align: left;">
+            <div style="margin-bottom: 6px;">🎫 スクール会員：シークレットコードを入力</div>
+            <div>💳 一般：1,000円で全機能を永久解放</div>
+          </div>
+          <button class="kuraberu-premium-settings-btn" style="
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #0064d2 0%, #004a9e 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+          ">⚙️ 設定画面へ</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
    * 価格計算セクションのHTMLを生成
    */
-  function generatePriceCalcSection(priceJPY) {
+  function generatePriceCalcSection(priceJPY, isPremium) {
+    // プレミアムでない場合は案内を表示
+    if (!isPremium) {
+      return generatePremiumPromptSection();
+    }
+
     if (!priceJPY || !priceCalculator) {
       console.log('[しらべる君] 価格計算スキップ: priceJPY=', priceJPY, 'calculator=', !!priceCalculator);
       return '';
@@ -346,6 +400,9 @@
     // 既存のパネルを閉じる
     closePanel();
 
+    // プレミアム状態をチェック
+    const isPremium = await checkPremiumStatus();
+
     // PriceCalculatorが初期化されていなければ初期化
     if (!priceCalculator) {
       console.log('[しらべる君] PriceCalculator を遅延初期化');
@@ -354,8 +411,8 @@
 
     // 価格を取得
     const price = getProductPrice();
-    console.log('[しらべる君] 取得した価格:', price, 'Calculator:', !!priceCalculator);
-    const priceCalcHtml = generatePriceCalcSection(price);
+    console.log('[しらべる君] 取得した価格:', price, 'Calculator:', !!priceCalculator, 'isPremium:', isPremium);
+    const priceCalcHtml = generatePriceCalcSection(price, isPremium);
 
     // パネルを作成
     const panel = document.createElement('div');
@@ -459,6 +516,14 @@
 
     // ドラッグ可能に
     makeDraggable(panel, panel.querySelector('.kuraberu-panel-header'));
+
+    // プレミアム案内の設定ボタン（存在する場合のみ）
+    const premiumSettingsBtn = panel.querySelector('.kuraberu-premium-settings-btn');
+    if (premiumSettingsBtn) {
+      premiumSettingsBtn.addEventListener('click', () => {
+        chrome.runtime.sendMessage({ action: 'openOptionsPage' });
+      });
+    }
   }
 
   /**

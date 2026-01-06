@@ -82,11 +82,10 @@
 ├── ebay-analyzer.js     # Sold Listings分析
 ├── ebay-product.js      # eBay商品ページ用
 ├── terapeak-analyzer.js # テラピーク分析
-├── popup.html/js        # ポップアップUI
+├── price-calculator.js  # 価格計算ロジック
+├── popup.html           # ポップアップUI
 ├── options.html/js      # 設定ページ
 ├── styles.css           # スタイルシート
-├── _locales/            # 多言語対応
-│   └── ja/messages.json
 └── icons/               # アイコン
     ├── icon16.png
     ├── icon48.png
@@ -106,6 +105,12 @@
 MIT License
 
 ## 変更履歴
+
+### v1.3.0 (2025-01-07)
+- プレミアム機能解放システム追加
+- 価格分析・価格計算機能をプレミアム化
+- 設定画面にシークレットコード入力欄追加
+- パネルのスクロール改善
 
 ### v1.0.0 (2025-01-06)
 - 初回リリース

@@ -449,6 +449,26 @@
     </div>
 
     <div class="content">
+      <!-- プレミアム機能解放 Section -->
+      <div class="section">
+        <h2>🔓 プレミアム機能解放</h2>
+        <div class="section-description">
+          スクール会員の方はシークレットコードを入力してください。<br>
+          入力すると「価格分析」と「価格計算機能」が利用可能になります。
+        </div>
+        <div class="input-group">
+          <label>シークレットコード</label>
+          <div class="api-key-input">
+            <input type="password" id="secretCode" placeholder="シークレットコードを入力">
+            <button class="toggle-btn" id="toggleSecretVisibility">👁</button>
+          </div>
+          <p class="hint">
+            スクール会員向けのコードです。お持ちでない方は有料プランをご検討ください。
+          </p>
+        </div>
+        <div id="premiumStatus"></div>
+      </div>
+
       <!-- API Key Section -->
       <div class="section">
         <h2>🔐 OpenAI APIキー設定</h2>
@@ -699,7 +719,7 @@
       <div class="section">
         <h2>ℹ️ このアプリについて</h2>
         <div class="about">
-          <strong>しらべる君 v1.1.0</strong><br><br>
+          <strong>しらべる君 v1.3.0</strong><br><br>
           メルカリとeBay間の双方向価格リサーチツールです。<br><br>
           <strong>📦 メルカリ → eBay（輸出リサーチ）</strong><br>
           メルカリの商品がeBayでいくらで売れているか調査<br><br>

@@ -9,6 +9,23 @@
 
   let currentPanel = null;
   let priceCalculator = null;
+  let isPremiumCached = null;
+
+  /**
+   * プレミアム状態をチェック
+   */
+  async function checkPremiumStatus() {
+    try {
+      const data = await chrome.storage.local.get(['shiraberu_secret_code']);
+      const secretCode = data.shiraberu_secret_code;
+      isPremiumCached = secretCode && ['MGOOSE2025'].includes(secretCode.trim().toUpperCase());
+      console.log('[しらべる君 eBay商品] プレミアム状態:', isPremiumCached);
+      return isPremiumCached;
+    } catch (error) {
+      console.error('[しらべる君 eBay商品] プレミアムチェックエラー:', error);
+      return false;
+    }
+  }
 
   /**
    * 価格計算機を初期化
@@ -169,9 +186,44 @@
   }
 
   /**
+   * プレミアム機能の案内HTMLを生成
+   */
+  function generatePremiumPromptSection() {
+    return `
+      <div style="background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%); padding: 16px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #bdbdbd;">
+        <div style="font-size: 14px; font-weight: 600; color: #333; margin-bottom: 12px; text-align: center;">🔒 仕入れ上限計算（プレミアム機能）</div>
+        <div style="font-size: 12px; color: #666; margin-bottom: 16px; text-align: center; line-height: 1.6;">
+          価格計算機能はプレミアム会員限定です。<br>
+          スクール会員の方はシークレットコードを入力してください。
+        </div>
+        <div style="background: white; border-radius: 6px; padding: 12px; margin-bottom: 12px; font-size: 11px;">
+          <div style="margin-bottom: 6px;">🎫 スクール会員：シークレットコードを入力</div>
+          <div>💳 一般：1,000円で全機能を永久解放</div>
+        </div>
+        <button class="kuraberu-ebay-premium-settings-btn" style="
+          width: 100%;
+          padding: 10px;
+          background: linear-gradient(135deg, #0064d2 0%, #004a9e 100%);
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+        ">⚙️ 設定画面へ</button>
+      </div>
+    `;
+  }
+
+  /**
    * 仕入れ上限計算セクションのHTMLを生成
    */
-  function generatePriceCalcSection(priceUSD) {
+  function generatePriceCalcSection(priceUSD, isPremium) {
+    // プレミアムでない場合は案内を表示
+    if (!isPremium) {
+      return generatePremiumPromptSection();
+    }
+
     if (!priceCalculator || !priceUSD) {
       return `
         <div style="background: #fff3e0; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
@@ -242,17 +294,20 @@
   /**
    * 調査パネルを表示
    */
-  function showResearchPanel(title, buttonElement) {
+  async function showResearchPanel(title, buttonElement) {
     closePanel();
 
+    // プレミアム状態をチェック
+    const isPremium = await checkPremiumStatus();
+
     const priceUSD = getProductPrice();
-    const priceCalcHtml = generatePriceCalcSection(priceUSD);
+    const priceCalcHtml = generatePriceCalcSection(priceUSD, isPremium);
 
     const panel = document.createElement('div');
     panel.className = 'kuraberu-ebay-panel';
 
     panel.innerHTML = `
-      <div style="
+      <div class="kuraberu-ebay-panel-inner" style="
         position: fixed;
         top: 150px;
         right: 20px;
@@ -263,8 +318,9 @@
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         z-index: 10000;
         overflow: hidden;
-        max-height: 90vh;
-        overflow-y: auto;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
       ">
         <div style="
           background: linear-gradient(135deg, #0064d2 0%, #004a9e 100%);
@@ -287,7 +343,7 @@
             cursor: pointer;
           ">✕</button>
         </div>
-        <div style="padding: 16px;">
+        <div style="padding: 16px; overflow-y: auto; flex: 1; overscroll-behavior: contain;">
           <div style="margin-bottom: 12px;">
             <label style="font-size: 12px; color: #666;">商品タイトル:</label>
             <div style="font-size: 13px; color: #333; margin-top: 4px; max-height: 60px; overflow: hidden;">${escapeHtml(title.substring(0, 100))}${title.length > 100 ? '...' : ''}</div>
@@ -486,6 +542,14 @@
         }
       }
     });
+
+    // プレミアム案内の設定ボタン（存在する場合のみ）
+    const premiumSettingsBtn = panel.querySelector('.kuraberu-ebay-premium-settings-btn');
+    if (premiumSettingsBtn) {
+      premiumSettingsBtn.addEventListener('click', () => {
+        chrome.runtime.sendMessage({ action: 'openOptionsPage' });
+      });
+    }
   }
 
   /**

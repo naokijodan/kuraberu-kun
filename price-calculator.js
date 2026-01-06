@@ -183,7 +183,7 @@ class PriceCalculator {
 
     // 利益を確保した場合の仕入れ上限
     // 利益 = 入金額 - 関税 - 仕入れ - 送料
-    // 利益率 = 利益 / DDP売上
+    // 利益率 = 利益 / DDP売上（元ツールと同じ計算方式）
     // targetProfitRate = (afterPayoneer - tariffJPY - costJPY - shippingCostJPY) / ddpPriceJPY
     // costJPY = afterPayoneer - tariffJPY - shippingCostJPY - (targetProfitRate * ddpPriceJPY)
     const targetProfitJPY = ddpPriceJPY * targetProfitRate;
@@ -272,7 +272,7 @@ class PriceCalculator {
       const actualTariffJPY = tariffAmounts.actualTariff * s.exchangeRate;
       const calculatedProfit = afterPayoneer - actualTariffJPY - costJPY - shippingCostJPY;
 
-      // 目標利益率との差分
+      // 目標利益率との差分（DDP価格ベース）
       const currentProfitRate = calculatedProfit / ddpPriceJPY;
       const rateDiff = targetProfitRate - currentProfitRate;
 
@@ -288,7 +288,7 @@ class PriceCalculator {
     const ddpPriceUSD = sellingPriceUSD + tariffAmounts.adjustedTariff;
     const ddpPriceJPY = ddpPriceUSD * s.exchangeRate;
 
-    // 利益計算
+    // 利益計算（手数料・利益率ともにDDPベース）
     const ebayFeeJPY = ddpPriceJPY * feeRate;
     const adFeeJPY = ddpPriceJPY * adRate;
     const afterEbayFees = ddpPriceJPY - ebayFeeJPY - adFeeJPY;

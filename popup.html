@@ -351,6 +351,27 @@
   </div>
 
   <div class="content">
+    <!-- プレミアム機能解放 Section -->
+    <div class="section" id="section-premium">
+      <h2 class="section-header">
+        🔓 プレミアム機能解放
+        <span class="collapse-icon">▼</span>
+      </h2>
+      <div class="section-content">
+        <div class="input-group">
+          <label>シークレットコード</label>
+          <div class="api-key-row">
+            <input type="password" id="secretCode" placeholder="シークレットコードを入力">
+            <button class="toggle-btn" id="toggleSecretVisibility">👁</button>
+          </div>
+          <p class="hint">
+            スクール会員の方はコードを入力すると価格分析・価格計算が利用可能になります。
+          </p>
+        </div>
+        <div id="premiumStatus"></div>
+      </div>
+    </div>
+
     <!-- API Key Section -->
     <div class="section" id="section-api">
       <h2 class="section-header">
@@ -611,7 +632,7 @@
   </div>
 
   <div class="footer">
-    しらべる君 v1.2.0 | メルカリ⇔eBay双方向リサーチ
+    しらべる君 v1.3.0 | メルカリ⇔eBay双方向リサーチ
   </div>
 
   <div class="toast" id="toast"></div>

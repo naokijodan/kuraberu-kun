@@ -3,6 +3,9 @@
  * 価格計算設定を含む全設定の管理
  */
 
+// 有効なシークレットコード
+const VALID_SECRET_CODES = ['MGOOSE2025'];
+
 // デフォルト設定値
 const DEFAULT_SETTINGS = {
   // 基本設定
@@ -100,33 +103,63 @@ const SHIPPING_RATE_TABLE = {
 
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // 保存済みの設定を読み込み
-  await loadAllSettings();
+  console.log('しらべる君: 設定画面の初期化開始');
+  try {
+    // イベントリスナーを設定（最初に設定）
+    console.log('イベントリスナー設定中...');
+    setupEventListeners();
 
-  // イベントリスナーを設定
-  setupEventListeners();
+    // 保存済みの設定を読み込み
+    console.log('設定読み込み中...');
+    await loadAllSettings();
 
-  // 送料モード切替
-  toggleShippingMode();
+    // 送料モード切替
+    console.log('送料モード切替中...');
+    toggleShippingMode();
 
-  // 容積重量計算のイベントを設定
-  setupVolumetricWeightListeners();
+    // 容積重量計算のイベントを設定
+    console.log('容積重量リスナー設定中...');
+    setupVolumetricWeightListeners();
+
+    console.log('しらべる君: 設定画面の初期化完了');
+  } catch (error) {
+    console.error('設定の初期化エラー:', error);
+  }
 });
 
 /**
  * 全設定を読み込み
  */
 async function loadAllSettings() {
-  const result = await chrome.storage.sync.get(['openaiApiKey', 'priceCalcSettings']);
+  try {
+    // sync storageからAPIキーと価格設定を読み込み
+    const syncResult = await chrome.storage.sync.get(['openaiApiKey', 'priceCalcSettings']);
 
-  // APIキー
-  const apiKey = result.openaiApiKey || '';
-  document.getElementById('openaiKey').value = apiKey;
-  updateApiKeyStatus(!!apiKey);
+    // local storageからシークレットコードを読み込み
+    const localResult = await chrome.storage.local.get(['shiraberu_secret_code']);
 
-  // 価格計算設定
-  const settings = result.priceCalcSettings || DEFAULT_SETTINGS;
-  applySettingsToForm(settings);
+    // シークレットコード
+    const secretCode = localResult.shiraberu_secret_code || '';
+    const secretCodeEl = document.getElementById('secretCode');
+    if (secretCodeEl) {
+      secretCodeEl.value = secretCode;
+    }
+    updatePremiumStatus(secretCode);
+
+    // APIキー
+    const apiKey = syncResult.openaiApiKey || '';
+    const apiKeyEl = document.getElementById('openaiKey');
+    if (apiKeyEl) {
+      apiKeyEl.value = apiKey;
+    }
+    updateApiKeyStatus(!!apiKey);
+
+    // 価格計算設定
+    const settings = syncResult.priceCalcSettings || DEFAULT_SETTINGS;
+    applySettingsToForm(settings);
+  } catch (error) {
+    console.error('設定読み込みエラー:', error);
+  }
 }
 
 /**
@@ -156,39 +189,51 @@ function applySettingsToForm(settings) {
 }
 
 /**
+ * 要素から値を安全に取得するヘルパー関数
+ */
+function getElementValue(id, defaultValue, isNumber = true) {
+  const el = document.getElementById(id);
+  if (!el) return defaultValue;
+  if (isNumber) {
+    return parseFloat(el.value) || defaultValue;
+  }
+  return el.value || defaultValue;
+}
+
+/**
  * フォームから設定を取得
  */
 function getSettingsFromForm() {
   return {
-    exchangeRate: parseFloat(document.getElementById('exchangeRate').value) || DEFAULT_SETTINGS.exchangeRate,
-    targetProfitRate: parseFloat(document.getElementById('targetProfitRate').value) || DEFAULT_SETTINGS.targetProfitRate,
-    feeRate: parseFloat(document.getElementById('feeRate').value) || DEFAULT_SETTINGS.feeRate,
-    adRate: parseFloat(document.getElementById('adRate').value) || DEFAULT_SETTINGS.adRate,
-    payoneerRate: parseFloat(document.getElementById('payoneerRate').value) || DEFAULT_SETTINGS.payoneerRate,
-    safetyMargin: parseFloat(document.getElementById('safetyMargin').value) || DEFAULT_SETTINGS.safetyMargin,
-    tariffRate: parseFloat(document.getElementById('tariffRate').value) || DEFAULT_SETTINGS.tariffRate,
-    vatRate: parseFloat(document.getElementById('vatRate').value) || DEFAULT_SETTINGS.vatRate,
-    processingFeeRate: parseFloat(document.getElementById('processingFeeRate').value) || DEFAULT_SETTINGS.processingFeeRate,
-    mpf: parseFloat(document.getElementById('mpf').value) || 0,
-    ceMpf: parseFloat(document.getElementById('ceMpf').value) || DEFAULT_SETTINGS.ceMpf,
-    mpfUsd: parseFloat(document.getElementById('mpfUsd').value) || 0,
-    euShippingDiff: parseFloat(document.getElementById('euShippingDiff').value) || 0,
-    shippingMode: document.getElementById('shippingMode').value,
-    shippingCost: parseFloat(document.getElementById('shippingCost').value) || DEFAULT_SETTINGS.shippingCost,
-    shippingThreshold: parseFloat(document.getElementById('shippingThreshold').value) || DEFAULT_SETTINGS.shippingThreshold,
-    lowPriceMethod: document.getElementById('lowPriceMethod').value,
-    highPriceMethod: document.getElementById('highPriceMethod').value,
-    actualWeight: parseFloat(document.getElementById('actualWeight').value) || DEFAULT_SETTINGS.actualWeight,
-    packageLength: parseFloat(document.getElementById('packageLength').value) || DEFAULT_SETTINGS.packageLength,
-    packageWidth: parseFloat(document.getElementById('packageWidth').value) || DEFAULT_SETTINGS.packageWidth,
-    packageHeight: parseFloat(document.getElementById('packageHeight').value) || DEFAULT_SETTINGS.packageHeight,
-    shippingMethod: document.getElementById('shippingMethod').value,
+    exchangeRate: getElementValue('exchangeRate', DEFAULT_SETTINGS.exchangeRate),
+    targetProfitRate: getElementValue('targetProfitRate', DEFAULT_SETTINGS.targetProfitRate),
+    feeRate: getElementValue('feeRate', DEFAULT_SETTINGS.feeRate),
+    adRate: getElementValue('adRate', DEFAULT_SETTINGS.adRate),
+    payoneerRate: getElementValue('payoneerRate', DEFAULT_SETTINGS.payoneerRate),
+    safetyMargin: getElementValue('safetyMargin', DEFAULT_SETTINGS.safetyMargin),
+    tariffRate: getElementValue('tariffRate', DEFAULT_SETTINGS.tariffRate),
+    vatRate: getElementValue('vatRate', DEFAULT_SETTINGS.vatRate),
+    processingFeeRate: getElementValue('processingFeeRate', DEFAULT_SETTINGS.processingFeeRate),
+    mpf: getElementValue('mpf', 0),
+    ceMpf: getElementValue('ceMpf', DEFAULT_SETTINGS.ceMpf),
+    mpfUsd: getElementValue('mpfUsd', 0),
+    euShippingDiff: getElementValue('euShippingDiff', 0),
+    shippingMode: getElementValue('shippingMode', DEFAULT_SETTINGS.shippingMode, false),
+    shippingCost: getElementValue('shippingCost', DEFAULT_SETTINGS.shippingCost),
+    shippingThreshold: getElementValue('shippingThreshold', DEFAULT_SETTINGS.shippingThreshold),
+    lowPriceMethod: getElementValue('lowPriceMethod', DEFAULT_SETTINGS.lowPriceMethod, false),
+    highPriceMethod: getElementValue('highPriceMethod', DEFAULT_SETTINGS.highPriceMethod, false),
+    actualWeight: getElementValue('actualWeight', DEFAULT_SETTINGS.actualWeight),
+    packageLength: getElementValue('packageLength', DEFAULT_SETTINGS.packageLength),
+    packageWidth: getElementValue('packageWidth', DEFAULT_SETTINGS.packageWidth),
+    packageHeight: getElementValue('packageHeight', DEFAULT_SETTINGS.packageHeight),
+    shippingMethod: getElementValue('shippingMethod', DEFAULT_SETTINGS.shippingMethod, false),
     // サーチャージ・割引設定
-    fedexFuelSurcharge: parseFloat(document.getElementById('fedexFuelSurcharge').value) || DEFAULT_SETTINGS.fedexFuelSurcharge,
-    dhlFuelSurcharge: parseFloat(document.getElementById('dhlFuelSurcharge').value) || DEFAULT_SETTINGS.dhlFuelSurcharge,
-    cpassDiscount: parseFloat(document.getElementById('cpassDiscount').value) || DEFAULT_SETTINGS.cpassDiscount,
-    fedexExtraPer500g: parseFloat(document.getElementById('fedexExtraPer500g').value) || DEFAULT_SETTINGS.fedexExtraPer500g,
-    dhlExtraPer500g: parseFloat(document.getElementById('dhlExtraPer500g').value) || DEFAULT_SETTINGS.dhlExtraPer500g
+    fedexFuelSurcharge: getElementValue('fedexFuelSurcharge', DEFAULT_SETTINGS.fedexFuelSurcharge),
+    dhlFuelSurcharge: getElementValue('dhlFuelSurcharge', DEFAULT_SETTINGS.dhlFuelSurcharge),
+    cpassDiscount: getElementValue('cpassDiscount', DEFAULT_SETTINGS.cpassDiscount),
+    fedexExtraPer500g: getElementValue('fedexExtraPer500g', DEFAULT_SETTINGS.fedexExtraPer500g),
+    dhlExtraPer500g: getElementValue('dhlExtraPer500g', DEFAULT_SETTINGS.dhlExtraPer500g)
   };
 }
 
@@ -196,31 +241,71 @@ function getSettingsFromForm() {
  * イベントリスナーを設定
  */
 function setupEventListeners() {
-  // パスワード表示切り替え
-  document.getElementById('toggleVisibility').addEventListener('click', () => {
-    const input = document.getElementById('openaiKey');
-    const btn = document.getElementById('toggleVisibility');
+  // シークレットコード表示切り替え
+  const toggleSecretBtn = document.getElementById('toggleSecretVisibility');
+  if (toggleSecretBtn) {
+    toggleSecretBtn.addEventListener('click', () => {
+      const input = document.getElementById('secretCode');
+      if (input) {
+        if (input.type === 'password') {
+          input.type = 'text';
+          toggleSecretBtn.textContent = '🙈';
+        } else {
+          input.type = 'password';
+          toggleSecretBtn.textContent = '👁';
+        }
+      }
+    });
+  }
 
-    if (input.type === 'password') {
-      input.type = 'text';
-      btn.textContent = '🙈';
-    } else {
-      input.type = 'password';
-      btn.textContent = '👁';
-    }
-  });
+  // シークレットコード入力時のリアルタイム検証
+  const secretCodeInput = document.getElementById('secretCode');
+  if (secretCodeInput) {
+    secretCodeInput.addEventListener('input', (e) => {
+      updatePremiumStatus(e.target.value);
+    });
+  }
+
+  // APIキーパスワード表示切り替え
+  const toggleVisibilityBtn = document.getElementById('toggleVisibility');
+  if (toggleVisibilityBtn) {
+    toggleVisibilityBtn.addEventListener('click', () => {
+      const input = document.getElementById('openaiKey');
+      if (input) {
+        if (input.type === 'password') {
+          input.type = 'text';
+          toggleVisibilityBtn.textContent = '🙈';
+        } else {
+          input.type = 'password';
+          toggleVisibilityBtn.textContent = '👁';
+        }
+      }
+    });
+  }
 
   // 保存ボタン
-  document.getElementById('saveBtn').addEventListener('click', saveAllSettings);
+  const saveBtn = document.getElementById('saveBtn');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', saveAllSettings);
+  }
 
   // リセットボタン
-  document.getElementById('resetBtn').addEventListener('click', resetToDefaults);
+  const resetBtn = document.getElementById('resetBtn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', resetToDefaults);
+  }
 
   // 送料モード変更
-  document.getElementById('shippingMode').addEventListener('change', toggleShippingMode);
+  const shippingModeSelect = document.getElementById('shippingMode');
+  if (shippingModeSelect) {
+    shippingModeSelect.addEventListener('change', toggleShippingMode);
+  }
 
   // 為替レート更新ボタン
-  document.getElementById('refreshRateBtn').addEventListener('click', refreshExchangeRate);
+  const refreshRateBtn = document.getElementById('refreshRateBtn');
+  if (refreshRateBtn) {
+    refreshRateBtn.addEventListener('click', refreshExchangeRate);
+  }
 
   // セクション折りたたみ（全てのセクションヘッダー）
   document.querySelectorAll('.section-header').forEach(header => {
@@ -265,34 +350,58 @@ function setupVolumetricWeightListeners() {
  * 全設定を保存
  */
 async function saveAllSettings() {
-  const apiKey = document.getElementById('openaiKey').value.trim();
+  try {
+    const secretCodeEl = document.getElementById('secretCode');
+    const apiKeyEl = document.getElementById('openaiKey');
 
-  // APIキーのバリデーション（空でない場合）
-  if (apiKey && !apiKey.startsWith('sk-')) {
-    showToast('無効なAPIキー形式です（sk-で始まる必要があります）', 'error');
-    return;
+    const secretCode = secretCodeEl ? secretCodeEl.value.trim() : '';
+    const apiKey = apiKeyEl ? apiKeyEl.value.trim() : '';
+
+    // シークレットコードの検証（空でない場合のみ）
+    const isValidCode = secretCode === '' || VALID_SECRET_CODES.includes(secretCode.toUpperCase());
+    if (secretCode && !isValidCode) {
+      showToast('無効なシークレットコードです', 'error');
+      return;
+    }
+
+    // APIキーのバリデーション（空でない場合）
+    if (apiKey && !apiKey.startsWith('sk-')) {
+      showToast('無効なAPIキー形式です（sk-で始まる必要があります）', 'error');
+      return;
+    }
+
+    // 価格計算設定を取得
+    const priceCalcSettings = getSettingsFromForm();
+
+    // sync storageに保存（APIキー、価格設定）
+    await chrome.storage.sync.set({
+      openaiApiKey: apiKey,
+      priceCalcSettings: priceCalcSettings
+    });
+
+    // local storageに保存（シークレットコード）
+    await chrome.storage.local.set({
+      shiraberu_secret_code: secretCode.toUpperCase()
+    });
+
+    showToast('すべての設定を保存しました', 'success');
+    updatePremiumStatus(secretCode);
+    updateApiKeyStatus(!!apiKey);
+
+    // 保存ステータス表示
+    const statusEl = document.getElementById('saveStatus');
+    if (statusEl) {
+      statusEl.className = 'status status-success';
+      statusEl.innerHTML = '✅ 設定が保存されました';
+      setTimeout(() => {
+        statusEl.innerHTML = '';
+        statusEl.className = '';
+      }, 3000);
+    }
+  } catch (error) {
+    console.error('保存エラー:', error);
+    showToast('保存中にエラーが発生しました', 'error');
   }
-
-  // 価格計算設定を取得
-  const priceCalcSettings = getSettingsFromForm();
-
-  // 保存
-  await chrome.storage.sync.set({
-    openaiApiKey: apiKey,
-    priceCalcSettings: priceCalcSettings
-  });
-
-  showToast('すべての設定を保存しました', 'success');
-  updateApiKeyStatus(!!apiKey);
-
-  // 保存ステータス表示
-  const statusEl = document.getElementById('saveStatus');
-  statusEl.className = 'status status-success';
-  statusEl.innerHTML = '✅ 設定が保存されました';
-  setTimeout(() => {
-    statusEl.innerHTML = '';
-    statusEl.className = '';
-  }, 3000);
 }
 
 /**
@@ -579,10 +688,32 @@ function toggleSection(header) {
 }
 
 /**
+ * プレミアムステータス表示を更新
+ */
+function updatePremiumStatus(code) {
+  const statusEl = document.getElementById('premiumStatus');
+  if (!statusEl) return;
+
+  const isValid = code && VALID_SECRET_CODES.includes(code.trim().toUpperCase());
+
+  if (isValid) {
+    statusEl.className = 'status status-success';
+    statusEl.innerHTML = '✅ プレミアム機能が有効です（価格分析・価格計算が利用可能）';
+  } else if (code && code.trim() !== '') {
+    statusEl.className = 'status status-error';
+    statusEl.innerHTML = '❌ 無効なシークレットコードです';
+  } else {
+    statusEl.className = 'status status-warning';
+    statusEl.innerHTML = '⚠️ 無料版です（eBay検索・Terapeak検索・AI翻訳のみ利用可能）';
+  }
+}
+
+/**
  * APIキーステータス表示を更新
  */
 function updateApiKeyStatus(hasKey) {
   const statusEl = document.getElementById('apiKeyStatus');
+  if (!statusEl) return;
 
   if (hasKey) {
     statusEl.className = 'status status-success';
