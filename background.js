@@ -22,6 +22,22 @@ const EBAY_KEYWORD_PROMPT = `日本語の商品情報を英語のeBay検索キ�
 【入力】
 `;
 
+// メルカリ検索キーワード生成用プロンプト（英語→日本語）
+const MERCARI_KEYWORD_PROMPT = `英語の商品タイトルを日本語のメルカリ検索キーワードに変換してください。
+
+【ルール】
+- ブランド名はカタカナまたは英語のまま（例: Hermes→エルメス、Louis Vuitton→ルイヴィトン）
+- 商品の種類を日本語に（例: scarf→スカーフ、wallet→財布、bag→バッグ）
+- 2〜4語程度の検索しやすいキーワードに
+- 状態（New, Used等）、色、サイズ詳細は除外
+- 「送料無料」「美品」などの販売条件は含めない
+
+【出力形式】
+日本語キーワードのみを1行で出力。説明や前置きは不要。
+
+【入力】
+`;
+
 // メッセージリスナー
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('[くらべる君 BG] メッセージ受信:', request.action);
@@ -29,6 +45,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'generateKeyword') {
     // OpenAI APIでキーワード生成（タイトル＋説明）
     generateEbayKeyword(request.title, request.description)
+      .then(keyword => sendResponse({ success: true, keyword }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true; // 非同期レスポンス
+  }
+
+  if (request.action === 'generateMercariKeyword') {
+    // OpenAI APIでメルカリ検索キーワード生成（英語→日本語）
+    generateMercariKeyword(request.title)
       .then(keyword => sendResponse({ success: true, keyword }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // 非同期レスポンス
@@ -128,6 +152,57 @@ async function generateEbayKeyword(title, description = '') {
   const keyword = data.choices[0].message.content.trim();
 
   console.log('[くらべる君 BG] キーワード生成成功:', keyword);
+  return keyword;
+}
+
+/**
+ * OpenAI APIでメルカリ検索キーワードを生成（英語→日本語）
+ */
+async function generateMercariKeyword(title) {
+  // APIキーを取得
+  const result = await chrome.storage.sync.get(['openaiApiKey']);
+  const apiKey = result.openaiApiKey;
+
+  if (!apiKey) {
+    throw new Error('OpenAI APIキーが設定されていません。拡張機能の設定画面でAPIキーを入力してください。');
+  }
+
+  console.log('[くらべる君 BG] メルカリキーワード生成開始');
+  console.log('[くらべる君 BG] 英語タイトル:', title);
+
+  const response = await fetch(OPENAI_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      messages: [
+        {
+          role: 'user',
+          content: MERCARI_KEYWORD_PROMPT + title
+        }
+      ],
+      max_tokens: 100,
+      temperature: 0.3
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    console.error('[くらべる君 BG] OpenAI APIエラー:', error);
+
+    if (response.status === 401) {
+      throw new Error('APIキーが無効です。正しいOpenAI APIキーを設定してください。');
+    }
+    throw new Error(error.error?.message || `APIエラー: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const keyword = data.choices[0].message.content.trim();
+
+  console.log('[くらべる君 BG] メルカリキーワード生成成功:', keyword);
   return keyword;
 }
 

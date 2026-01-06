@@ -138,23 +138,30 @@
     const btn = document.createElement('button');
     btn.className = 'kuraberu-btn';
     btn.innerHTML = '🔍 eBay調査';
-    btn.title = 'eBayでの販売状況を調査します';
-
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const description = getProductDescription();
-      showResearchPanel(title, description, btn);
-    });
+    btn.title = 'eBayでの販売状況を調査します（ドラッグで移動可能）';
 
     // ボタンを右上にフローティング表示
     btn.style.position = 'fixed';
     btn.style.top = '100px';
     btn.style.right = '20px';
     btn.style.zIndex = '9999';
+    btn.style.cursor = 'move';
     document.body.appendChild(btn);
 
-    console.log('[くらべる君] ボタン追加完了');
+    // ボタンをドラッグ可能に
+    const dragState = makeDraggable(btn, btn);
+
+    // クリック時の処理（ドラッグと区別）
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // ドラッグ操作後はクリックを無視
+      if (dragState.hasMoved()) return;
+      const description = getProductDescription();
+      showResearchPanel(title, description, btn);
+    });
+
+    console.log('[くらべる君] ボタン追加完了（ドラッグ対応）');
   }
 
   /**
@@ -357,11 +364,12 @@
   }
 
   /**
-   * パネルをドラッグ可能にする
+   * 要素をドラッグ可能にする（ボタン・パネル両対応）
    */
-  function makeDraggable(panel, handle) {
+  function makeDraggable(element, handle, options = {}) {
     let isDragging = false;
-    let startX, startY, initialLeft, initialTop;
+    let hasMoved = false;
+    let startX, startY, initialLeft, initialTop, initialRight;
 
     handle.style.cursor = 'move';
 
@@ -369,10 +377,20 @@
       if (e.target.classList.contains('kuraberu-panel-close')) return;
 
       isDragging = true;
+      hasMoved = false;
       startX = e.clientX;
       startY = e.clientY;
-      initialLeft = panel.offsetLeft;
-      initialTop = panel.offsetTop;
+
+      // left/rightどちらで配置されているかを判定
+      const computedStyle = window.getComputedStyle(element);
+      if (computedStyle.right !== 'auto' && !element.style.left) {
+        initialRight = parseInt(computedStyle.right);
+        initialTop = parseInt(computedStyle.top);
+      } else {
+        initialLeft = element.offsetLeft;
+        initialTop = element.offsetTop;
+        initialRight = null;
+      }
       e.preventDefault();
     });
 
@@ -381,13 +399,37 @@
 
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      panel.style.left = `${initialLeft + dx}px`;
-      panel.style.top = `${initialTop + dy}px`;
+
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        hasMoved = true;
+      }
+
+      // 画面外に出ないよう制限
+      if (initialRight !== null) {
+        // right基準で配置されている場合
+        const newRight = Math.max(0, Math.min(initialRight - dx, window.innerWidth - element.offsetWidth));
+        const newTop = Math.max(0, Math.min(initialTop + dy, window.innerHeight - element.offsetHeight));
+        element.style.right = `${newRight}px`;
+        element.style.top = `${newTop}px`;
+        element.style.left = 'auto';
+      } else {
+        // left基準で配置されている場合
+        const newLeft = Math.max(0, Math.min(initialLeft + dx, window.innerWidth - element.offsetWidth));
+        const newTop = Math.max(0, Math.min(initialTop + dy, window.innerHeight - element.offsetHeight));
+        element.style.left = `${newLeft}px`;
+        element.style.top = `${newTop}px`;
+        element.style.right = 'auto';
+      }
     });
 
     document.addEventListener('mouseup', () => {
       isDragging = false;
     });
+
+    // クリックとドラッグを区別するためのフラグを返す
+    return {
+      hasMoved: () => hasMoved
+    };
   }
 
   /**

@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "くらべる君 - eBay価格リサーチ",
+    "description": "Extension name"
+  },
+  "extDescription": {
+    "message": "メルカリ商品のeBay市場価格を瞬時にリサーチ。Sold Listings分析、テラピーク連携、AI翻訳機能搭載。",
+    "description": "Extension description"
+  }
+}

@@ -65,7 +65,7 @@
     const btn = document.createElement('button');
     btn.className = 'kuraberu-ebay-btn';
     btn.innerHTML = '🔍 市場調査';
-    btn.title = 'この商品の市場調査を行います';
+    btn.title = 'この商品の市場調査を行います（ドラッグで移動可能）';
 
     btn.style.cssText = `
       position: fixed;
@@ -79,19 +79,25 @@
       border-radius: 8px;
       font-size: 14px;
       font-weight: 600;
-      cursor: pointer;
+      cursor: move;
       box-shadow: 0 4px 12px rgba(0,0,0,0.2);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
 
+    document.body.appendChild(btn);
+
+    // ボタンをドラッグ可能に
+    const dragState = makeDraggable(btn, btn);
+
+    // クリック時の処理（ドラッグと区別）
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (dragState.hasMoved()) return;
       showResearchPanel(title, btn);
     });
 
-    document.body.appendChild(btn);
-    console.log('[くらべる君 eBay商品] ボタン追加完了');
+    console.log('[くらべる君 eBay商品] ボタン追加完了（ドラッグ対応）');
   }
 
   /**
@@ -108,7 +114,7 @@
         position: fixed;
         top: 150px;
         right: 20px;
-        width: 340px;
+        width: 360px;
         background: white;
         border-radius: 12px;
         box-shadow: 0 8px 32px rgba(0,0,0,0.2);
@@ -124,7 +130,7 @@
           justify-content: space-between;
           align-items: center;
         ">
-          <span style="font-weight: 600;">🔍 eBay市場調査</span>
+          <span style="font-weight: 600;">🔍 商品リサーチ</span>
           <button class="kuraberu-panel-close" style="
             background: rgba(255,255,255,0.2);
             border: none;
@@ -139,42 +145,85 @@
             <label style="font-size: 12px; color: #666;">商品タイトル:</label>
             <div style="font-size: 13px; color: #333; margin-top: 4px; max-height: 60px; overflow: hidden;">${escapeHtml(title.substring(0, 100))}${title.length > 100 ? '...' : ''}</div>
           </div>
-          <div style="margin-bottom: 12px;">
-            <label style="font-size: 12px; color: #666;">検索キーワード（編集可）:</label>
-            <input type="text" class="kuraberu-keyword-input" value="${escapeHtml(extractKeywords(title))}" style="
-              width: 100%;
-              padding: 10px;
-              border: 1px solid #ddd;
-              border-radius: 6px;
-              font-size: 14px;
-              margin-top: 4px;
-              box-sizing: border-box;
-            ">
+
+          <!-- eBay検索セクション -->
+          <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+            <div style="font-size: 12px; color: #0064d2; font-weight: 600; margin-bottom: 8px;">📦 eBay市場調査</div>
+            <div style="margin-bottom: 8px;">
+              <input type="text" class="kuraberu-keyword-input" value="${escapeHtml(extractKeywords(title))}" placeholder="英語キーワード" style="
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                font-size: 13px;
+                box-sizing: border-box;
+              ">
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button class="kuraberu-search-btn" style="
+                flex: 1;
+                padding: 8px;
+                background: linear-gradient(135deg, #0064d2 0%, #004a9e 100%);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+              ">🔍 Sold</button>
+              <button class="kuraberu-terapeak-btn" style="
+                flex: 1;
+                padding: 8px;
+                background: linear-gradient(135deg, #f5af02 0%, #e09b00 100%);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+              ">📊 テラピーク</button>
+            </div>
           </div>
-          <div style="display: flex; gap: 8px;">
-            <button class="kuraberu-search-btn" style="
-              flex: 1;
-              padding: 12px;
-              background: linear-gradient(135deg, #0064d2 0%, #004a9e 100%);
-              color: white;
-              border: none;
-              border-radius: 6px;
-              font-size: 13px;
-              font-weight: 600;
-              cursor: pointer;
-            ">🔍 Sold Listings</button>
-            <button class="kuraberu-terapeak-btn" style="
-              flex: 1;
-              padding: 12px;
-              background: linear-gradient(135deg, #f5af02 0%, #e09b00 100%);
-              color: white;
-              border: none;
-              border-radius: 6px;
-              font-size: 13px;
-              font-weight: 600;
-              cursor: pointer;
-            ">📊 テラピーク</button>
+
+          <!-- メルカリ検索セクション -->
+          <div style="background: #fff5f5; padding: 12px; border-radius: 8px;">
+            <div style="font-size: 12px; color: #ea352d; font-weight: 600; margin-bottom: 8px;">🇯🇵 メルカリで探す</div>
+            <div style="margin-bottom: 8px;">
+              <input type="text" class="kuraberu-mercari-keyword" placeholder="日本語キーワード（AI翻訳で生成）" style="
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                font-size: 13px;
+                box-sizing: border-box;
+              ">
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button class="kuraberu-ai-translate-btn" style="
+                flex: 1;
+                padding: 8px;
+                background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+              ">🤖 AI翻訳</button>
+              <button class="kuraberu-mercari-btn" style="
+                flex: 1;
+                padding: 8px;
+                background: linear-gradient(135deg, #ea352d 0%, #c52d26 100%);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+              ">🔍 メルカリ</button>
+            </div>
           </div>
+
           <div class="kuraberu-message" style="
             margin-top: 12px;
             font-size: 12px;
@@ -187,9 +236,17 @@
     document.body.appendChild(panel);
     currentPanel = panel;
 
+    // パネル内部の要素を取得
+    const panelInner = panel.querySelector('div');
+    const panelHeader = panelInner.querySelector('div');
+
+    // パネルをドラッグ可能に
+    makeDraggable(panelInner, panelHeader);
+
     // イベントリスナー
     panel.querySelector('.kuraberu-panel-close').addEventListener('click', closePanel);
 
+    // eBay検索ボタン
     panel.querySelector('.kuraberu-search-btn').addEventListener('click', () => {
       const keyword = panel.querySelector('.kuraberu-keyword-input').value.trim();
       if (keyword) {
@@ -213,6 +270,108 @@
         }
       }
     });
+
+    // メルカリ検索ボタン
+    panel.querySelector('.kuraberu-ai-translate-btn').addEventListener('click', () => {
+      generateMercariKeyword(title, panel);
+    });
+
+    panel.querySelector('.kuraberu-mercari-btn').addEventListener('click', () => {
+      const keyword = panel.querySelector('.kuraberu-mercari-keyword').value.trim();
+      if (keyword) {
+        openMercariSearch(keyword);
+      } else {
+        showMessage(panel, '⚠️ 先にAI翻訳でキーワードを生成してください', 'warning');
+      }
+    });
+
+    // メルカリキーワードでEnterキー
+    panel.querySelector('.kuraberu-mercari-keyword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const keyword = panel.querySelector('.kuraberu-mercari-keyword').value.trim();
+        if (keyword) {
+          openMercariSearch(keyword);
+        }
+      }
+    });
+  }
+
+  /**
+   * AIでメルカリ検索キーワードを生成
+   */
+  async function generateMercariKeyword(title, panel) {
+    const messageEl = panel.querySelector('.kuraberu-message');
+    const inputEl = panel.querySelector('.kuraberu-mercari-keyword');
+    const aiBtn = panel.querySelector('.kuraberu-ai-translate-btn');
+
+    // ボタンを無効化
+    aiBtn.disabled = true;
+    aiBtn.textContent = '🔄 翻訳中...';
+    messageEl.textContent = '🤖 AIが日本語キーワードを生成しています...';
+    messageEl.style.color = '#666';
+
+    try {
+      // APIキー確認
+      const checkResult = await chrome.runtime.sendMessage({ action: 'checkApiKey' });
+
+      if (!checkResult.hasKey) {
+        showMessage(panel, '⚠️ OpenAI APIキーが設定されていません', 'warning');
+        return;
+      }
+
+      // バックグラウンドでキーワード生成
+      const result = await chrome.runtime.sendMessage({
+        action: 'generateMercariKeyword',
+        title: title
+      });
+
+      if (result.success) {
+        inputEl.value = result.keyword;
+        showMessage(panel, '✅ 日本語キーワード生成完了！', 'success');
+      } else {
+        showMessage(panel, `❌ エラー: ${result.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('[くらべる君 eBay商品] AI翻訳エラー:', error);
+      showMessage(panel, `❌ エラー: ${error.message}`, 'error');
+    } finally {
+      aiBtn.disabled = false;
+      aiBtn.textContent = '🤖 AI翻訳';
+    }
+  }
+
+  /**
+   * メルカリ検索を開く
+   */
+  function openMercariSearch(keyword) {
+    const url = `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}`;
+    chrome.runtime.sendMessage({
+      action: 'openTab',
+      url: url,
+      active: true
+    });
+  }
+
+  /**
+   * メッセージを表示
+   */
+  function showMessage(panel, text, type) {
+    const msgEl = panel.querySelector('.kuraberu-message');
+    if (msgEl) {
+      msgEl.textContent = text;
+      if (type === 'success') {
+        msgEl.style.color = '#2e7d32';
+      } else if (type === 'error') {
+        msgEl.style.color = '#c62828';
+      } else if (type === 'warning') {
+        msgEl.style.color = '#e65100';
+      } else {
+        msgEl.style.color = '#666';
+      }
+      setTimeout(() => {
+        msgEl.textContent = '';
+      }, 5000);
+    }
   }
 
   /**
@@ -264,6 +423,68 @@
       currentPanel.remove();
       currentPanel = null;
     }
+  }
+
+  /**
+   * 要素をドラッグ可能にする
+   */
+  function makeDraggable(element, handle) {
+    let isDragging = false;
+    let hasMoved = false;
+    let startX, startY, initialLeft, initialTop, initialRight;
+
+    handle.style.cursor = 'move';
+
+    handle.addEventListener('mousedown', (e) => {
+      if (e.target.classList.contains('kuraberu-panel-close')) return;
+
+      isDragging = true;
+      hasMoved = false;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      const computedStyle = window.getComputedStyle(element);
+      if (computedStyle.right !== 'auto' && !element.style.left) {
+        initialRight = parseInt(computedStyle.right);
+        initialTop = parseInt(computedStyle.top);
+      } else {
+        initialLeft = element.offsetLeft;
+        initialTop = element.offsetTop;
+        initialRight = null;
+      }
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        hasMoved = true;
+      }
+
+      if (initialRight !== null) {
+        const newRight = Math.max(0, Math.min(initialRight - dx, window.innerWidth - element.offsetWidth));
+        const newTop = Math.max(0, Math.min(initialTop + dy, window.innerHeight - element.offsetHeight));
+        element.style.right = `${newRight}px`;
+        element.style.top = `${newTop}px`;
+        element.style.left = 'auto';
+      } else {
+        const newLeft = Math.max(0, Math.min(initialLeft + dx, window.innerWidth - element.offsetWidth));
+        const newTop = Math.max(0, Math.min(initialTop + dy, window.innerHeight - element.offsetHeight));
+        element.style.left = `${newLeft}px`;
+        element.style.top = `${newTop}px`;
+        element.style.right = 'auto';
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    return { hasMoved: () => hasMoved };
   }
 
   /**

@@ -10,6 +10,7 @@
   // 累積データ（chrome.storageで永続化）
   let collectedPrices = [];
   let currentPanel = null;
+  let currentButton = null;
   let currentSearchKeyword = '';
 
   /**
@@ -207,6 +208,13 @@
     document.body.appendChild(panel);
     currentPanel = panel;
 
+    // パネル内部の要素を取得
+    const panelInner = panel.querySelector('div');
+    const panelHeader = panelInner.querySelector('div');
+
+    // パネルをドラッグ可能に
+    makeDraggable(panelInner, panelHeader);
+
     // イベントリスナー
     document.getElementById('kuraberu-tp-close').addEventListener('click', () => {
       panel.remove();
@@ -365,28 +373,176 @@
   }
 
   /**
-   * テーブルが読み込まれるまで待つ
+   * 要素をドラッグ可能にする
    */
-  function waitForTable(callback, maxAttempts = 20) {
+  function makeDraggable(element, handle) {
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop, initialRight;
+
+    handle.style.cursor = 'move';
+
+    handle.addEventListener('mousedown', (e) => {
+      if (e.target.id === 'kuraberu-tp-close') return;
+
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      const computedStyle = window.getComputedStyle(element);
+      if (computedStyle.right !== 'auto' && !element.style.left) {
+        initialRight = parseInt(computedStyle.right);
+        initialTop = parseInt(computedStyle.top);
+      } else {
+        initialLeft = element.offsetLeft;
+        initialTop = element.offsetTop;
+        initialRight = null;
+      }
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      if (initialRight !== null) {
+        const newRight = Math.max(0, Math.min(initialRight - dx, window.innerWidth - element.offsetWidth));
+        const newTop = Math.max(0, Math.min(initialTop + dy, window.innerHeight - element.offsetHeight));
+        element.style.right = `${newRight}px`;
+        element.style.top = `${newTop}px`;
+        element.style.left = 'auto';
+      } else {
+        const newLeft = Math.max(0, Math.min(initialLeft + dx, window.innerWidth - element.offsetWidth));
+        const newTop = Math.max(0, Math.min(initialTop + dy, window.innerHeight - element.offsetHeight));
+        element.style.left = `${newLeft}px`;
+        element.style.top = `${newTop}px`;
+        element.style.right = 'auto';
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+  }
+
+  /**
+   * ページコンテンツが読み込まれるまで待つ
+   */
+  function waitForContent(callback, maxAttempts = 30) {
     let attempts = 0;
 
     const check = () => {
       attempts++;
-      const table = document.querySelector('table tbody tr');
-      console.log('[くらべる君 テラピーク] テーブル確認中... 試行', attempts);
+      // テラピークのコンテンツを検出（テーブルまたはdata-item-id）
+      const table = document.querySelector('table tr') ||
+                    document.querySelector('span[data-item-id]') ||
+                    document.querySelector('[class*="research"]');
+      console.log('[くらべる君 テラピーク] コンテンツ確認中... 試行', attempts);
 
       if (table) {
-        console.log('[くらべる君 テラピーク] テーブル発見');
+        console.log('[くらべる君 テラピーク] コンテンツ発見');
         callback();
       } else if (attempts < maxAttempts) {
         setTimeout(check, 500);
       } else {
-        console.log('[くらべる君 テラピーク] テーブルが見つかりませんでした');
-        callback(); // パネルは表示する（エラーメッセージ用）
+        console.log('[くらべる君 テラピーク] コンテンツが見つかりませんでしたが、ボタンは表示します');
+        callback(); // ボタンは表示する
       }
     };
 
     check();
+  }
+
+  /**
+   * 分析ボタンを追加
+   */
+  function addAnalysisButton() {
+    // 既にボタンがあれば何もしない
+    if (document.querySelector('.kuraberu-tp-btn')) {
+      return;
+    }
+
+    const btn = document.createElement('button');
+    btn.className = 'kuraberu-tp-btn';
+    btn.innerHTML = '📊 価格分析';
+    btn.title = 'テラピークの価格データを分析します（ドラッグで移動可能）';
+
+    btn.style.cssText = `
+      position: fixed;
+      top: 100px;
+      right: 20px;
+      z-index: 9999;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #f5af02 0%, #e09b00 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: move;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+
+    document.body.appendChild(btn);
+    currentButton = btn;
+
+    // ボタンをドラッグ可能に
+    const dragState = makeDraggableButton(btn);
+
+    // クリック時の処理（ドラッグと区別）
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (dragState.hasMoved()) return;
+      showAnalysisPanel();
+    });
+
+    console.log('[くらべる君 テラピーク] ボタン追加完了');
+  }
+
+  /**
+   * ボタン用ドラッグ機能
+   */
+  function makeDraggableButton(element) {
+    let isDragging = false;
+    let hasMoved = false;
+    let startX, startY, initialRight, initialTop;
+
+    element.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      hasMoved = false;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      const computedStyle = window.getComputedStyle(element);
+      initialRight = parseInt(computedStyle.right);
+      initialTop = parseInt(computedStyle.top);
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        hasMoved = true;
+      }
+
+      const newRight = Math.max(0, Math.min(initialRight - dx, window.innerWidth - element.offsetWidth));
+      const newTop = Math.max(0, Math.min(initialTop + dy, window.innerHeight - element.offsetHeight));
+      element.style.right = `${newRight}px`;
+      element.style.top = `${newTop}px`;
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    return { hasMoved: () => hasMoved };
   }
 
   /**
@@ -400,9 +556,9 @@
 
     console.log('[くらべる君 テラピーク] テラピークページを検出');
 
-    // テーブルが読み込まれるまで待ってからパネル表示
-    waitForTable(() => {
-      showAnalysisPanel();
+    // コンテンツが読み込まれるまで待ってからボタン表示
+    waitForContent(() => {
+      addAnalysisButton();
     });
   }
 
@@ -410,7 +566,8 @@
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
-    init();
+    // 少し待ってから初期化（SPAの初期レンダリングを待つ）
+    setTimeout(init, 500);
   }
 
   // URL変更監視（SPA対応）
@@ -418,10 +575,20 @@
   setInterval(() => {
     if (window.location.href !== lastUrl) {
       lastUrl = window.location.href;
+      // 既存のパネルとボタンを削除
+      if (currentPanel) {
+        currentPanel.remove();
+        currentPanel = null;
+      }
+      if (currentButton) {
+        currentButton.remove();
+        currentButton = null;
+      }
+      collectedPrices = [];
+
       if (isTerapeakPage()) {
-        collectedPrices = [];
-        waitForTable(() => {
-          showAnalysisPanel();
+        waitForContent(() => {
+          addAnalysisButton();
         });
       }
     }

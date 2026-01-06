@@ -11,6 +11,7 @@
   // 累積データ（chrome.storageで永続化）
   let collectedPrices = [];
   let currentPanel = null;
+  let currentButton = null;
   let selectionPopup = null;
   let currentSearchKeyword = ''; // 現在の検索キーワード
 
@@ -224,6 +225,13 @@
     document.body.appendChild(panel);
     currentPanel = panel;
 
+    // パネル内部の要素を取得
+    const panelInner = panel.querySelector('div');
+    const panelHeader = panelInner.querySelector('div');
+
+    // パネルをドラッグ可能に
+    makeDraggable(panelInner, panelHeader);
+
     // イベントリスナー
     document.getElementById('kuraberu-close').addEventListener('click', () => {
       panel.remove();
@@ -397,37 +405,50 @@
         background: white;
         border-radius: 8px;
         box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-        padding: 8px;
         z-index: 10001;
-        display: flex;
-        gap: 6px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        overflow: hidden;
       ">
-        <button class="kuraberu-sel-sold" style="
-          padding: 8px 12px;
-          background: linear-gradient(135deg, #0064d2 0%, #004a9e 100%);
-          color: white;
-          border: none;
-          border-radius: 6px;
-          font-size: 12px;
-          cursor: pointer;
-          white-space: nowrap;
-        ">🔍 Sold</button>
-        <button class="kuraberu-sel-terapeak" style="
-          padding: 8px 12px;
-          background: linear-gradient(135deg, #f5af02 0%, #e09b00 100%);
-          color: white;
-          border: none;
-          border-radius: 6px;
-          font-size: 12px;
-          cursor: pointer;
-          white-space: nowrap;
-        ">📊 テラピーク</button>
+        <div class="kuraberu-popup-header" style="
+          background: #f0f0f0;
+          padding: 4px 8px;
+          font-size: 10px;
+          color: #666;
+          cursor: move;
+          text-align: center;
+        ">⋮⋮ ドラッグで移動</div>
+        <div style="padding: 8px; display: flex; gap: 6px;">
+          <button class="kuraberu-sel-sold" style="
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #0064d2 0%, #004a9e 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+          ">🔍 Sold</button>
+          <button class="kuraberu-sel-terapeak" style="
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #f5af02 0%, #e09b00 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+          ">📊 テラピーク</button>
+        </div>
       </div>
     `;
 
     document.body.appendChild(popup);
     selectionPopup = popup;
+
+    // ポップアップをドラッグ可能に
+    const popupInner = popup.querySelector('div');
+    const popupHeader = popup.querySelector('.kuraberu-popup-header');
+    makeDraggable(popupInner, popupHeader);
 
     // ボタンイベント
     popup.querySelector('.kuraberu-sel-sold').addEventListener('click', (e) => {
@@ -480,6 +501,68 @@
   }
 
   /**
+   * 要素をドラッグ可能にする
+   */
+  function makeDraggable(element, handle) {
+    let isDragging = false;
+    let hasMoved = false;
+    let startX, startY, initialLeft, initialTop, initialRight;
+
+    handle.style.cursor = 'move';
+
+    handle.addEventListener('mousedown', (e) => {
+      if (e.target.id === 'kuraberu-close') return;
+
+      isDragging = true;
+      hasMoved = false;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      const computedStyle = window.getComputedStyle(element);
+      if (computedStyle.right !== 'auto' && !element.style.left) {
+        initialRight = parseInt(computedStyle.right);
+        initialTop = parseInt(computedStyle.top);
+      } else {
+        initialLeft = element.offsetLeft;
+        initialTop = element.offsetTop;
+        initialRight = null;
+      }
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        hasMoved = true;
+      }
+
+      if (initialRight !== null) {
+        const newRight = Math.max(0, Math.min(initialRight - dx, window.innerWidth - element.offsetWidth));
+        const newTop = Math.max(0, Math.min(initialTop + dy, window.innerHeight - element.offsetHeight));
+        element.style.right = `${newRight}px`;
+        element.style.top = `${newTop}px`;
+        element.style.left = 'auto';
+      } else {
+        const newLeft = Math.max(0, Math.min(initialLeft + dx, window.innerWidth - element.offsetWidth));
+        const newTop = Math.max(0, Math.min(initialTop + dy, window.innerHeight - element.offsetHeight));
+        element.style.left = `${newLeft}px`;
+        element.style.top = `${newTop}px`;
+        element.style.right = 'auto';
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    return { hasMoved: () => hasMoved };
+  }
+
+  /**
    * テキスト選択を監視
    */
   function setupSelectionListener() {
@@ -514,6 +597,97 @@
   }
 
   /**
+   * 分析ボタンを追加
+   */
+  function addAnalysisButton() {
+    // 既にボタンがあれば何もしない
+    if (document.querySelector('.kuraberu-ebay-analysis-btn')) {
+      return;
+    }
+
+    const btn = document.createElement('button');
+    btn.className = 'kuraberu-ebay-analysis-btn';
+    btn.innerHTML = '📊 価格分析';
+    btn.title = 'Sold Listingsの価格データを分析します（ドラッグで移動可能）';
+
+    btn.style.cssText = `
+      position: fixed;
+      top: 100px;
+      right: 20px;
+      z-index: 9999;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #0064d2 0%, #004a9e 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: move;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+
+    document.body.appendChild(btn);
+    currentButton = btn;
+
+    // ボタンをドラッグ可能に
+    const dragState = makeDraggableButton(btn);
+
+    // クリック時の処理（ドラッグと区別）
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (dragState.hasMoved()) return;
+      showAnalysisPanel();
+    });
+
+    console.log('[くらべる君 eBay] ボタン追加完了');
+  }
+
+  /**
+   * ボタン用ドラッグ機能
+   */
+  function makeDraggableButton(element) {
+    let isDragging = false;
+    let hasMoved = false;
+    let startX, startY, initialRight, initialTop;
+
+    element.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      hasMoved = false;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      const computedStyle = window.getComputedStyle(element);
+      initialRight = parseInt(computedStyle.right);
+      initialTop = parseInt(computedStyle.top);
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        hasMoved = true;
+      }
+
+      const newRight = Math.max(0, Math.min(initialRight - dx, window.innerWidth - element.offsetWidth));
+      const newTop = Math.max(0, Math.min(initialTop + dy, window.innerHeight - element.offsetHeight));
+      element.style.right = `${newRight}px`;
+      element.style.top = `${newTop}px`;
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    return { hasMoved: () => hasMoved };
+  }
+
+  /**
    * 初期化
    */
   function init() {
@@ -527,9 +701,9 @@
     // テキスト選択リスナーを設定
     setupSelectionListener();
 
-    // 少し遅延してからパネルを表示（ページ読み込み完了を待つ）
+    // 少し遅延してからボタンを表示（ページ読み込み完了を待つ）
     setTimeout(() => {
-      showAnalysisPanel();
+      addAnalysisButton();
     }, 1500);
   }
 
@@ -537,7 +711,8 @@
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
-    init();
+    // 少し待ってから初期化
+    setTimeout(init, 500);
   }
 
 })();
