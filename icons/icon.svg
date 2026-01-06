@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0064d2"/>
+      <stop offset="100%" style="stop-color:#004a9e"/>
+    </linearGradient>
+    <linearGradient id="lensGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e3f2fd"/>
+      <stop offset="100%" style="stop-color:#bbdefb"/>
+    </linearGradient>
+    <linearGradient id="handleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff9800"/>
+      <stop offset="100%" style="stop-color:#f57c00"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#bgGrad)"/>
+
+  <!-- Magnifying glass lens (white/light blue) -->
+  <circle cx="52" cy="52" r="28" fill="url(#lensGrad)" stroke="#fff" stroke-width="4"/>
+
+  <!-- Lens shine -->
+  <ellipse cx="42" cy="42" rx="8" ry="6" fill="rgba(255,255,255,0.6)" transform="rotate(-45 42 42)"/>
+
+  <!-- Magnifying glass handle -->
+  <rect x="72" y="72" width="12" height="36" rx="6" fill="url(#handleGrad)" transform="rotate(45 78 90)"/>
+
+  <!-- Dollar sign inside lens -->
+  <text x="52" y="60" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#0064d2" text-anchor="middle">$</text>
+</svg>
