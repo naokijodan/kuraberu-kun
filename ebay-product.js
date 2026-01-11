@@ -340,20 +340,23 @@
           <summary style="cursor: pointer; color: #666; margin-bottom: 6px;">📊 詳細を見る</summary>
           <div class="kuraberu-calc-details" style="background: #f5f5f5; padding: 8px; border-radius: 6px; margin-top: 6px;">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-              <span style="color: #333;">DDP売上 (円換算)</span>
-              <span class="detail-ddp-jpy" style="text-align: right; color: #333;">¥${result.ddpPriceJPY.toLocaleString()}</span>
+              <span style="color: #333; font-weight: bold;">DDP価格</span>
+              <span class="detail-ddp-usd" style="text-align: right; color: #333; font-weight: bold;">$${result.ddpPriceUSD.toFixed(2)}</span>
 
-              <span style="color: #333;">eBay手数料（${priceCalculator.settings.feeRate}%）</span>
-              <span class="detail-ebay-fee" style="text-align: right; color: #c62828;">-¥${result.ebayFeeJPY.toLocaleString()}</span>
+              <span style="color: #333;">├ DDU価格</span>
+              <span class="detail-ddu-usd" style="text-align: right; color: #333;">$${result.dduPriceUSD.toFixed(2)} (¥${result.dduPriceJPY.toLocaleString()})</span>
+
+              <span style="color: #333;">└ 調整関税額</span>
+              <span class="detail-adj-tariff" style="text-align: right; color: #c62828;">+$${result.adjustedTariffUSD.toFixed(2)}</span>
+
+              <span style="color: #333; border-top: 1px solid #ddd; padding-top: 4px; margin-top: 4px;">eBay手数料（${priceCalculator.settings.feeRate}%）</span>
+              <span class="detail-ebay-fee" style="text-align: right; color: #c62828; border-top: 1px solid #ddd; padding-top: 4px; margin-top: 4px;">-¥${result.ebayFeeJPY.toLocaleString()}</span>
 
               <span style="color: #333;">広告費（${priceCalculator.settings.adRate}%）</span>
               <span class="detail-ad-fee" style="text-align: right; color: #c62828;">-¥${result.adFeeJPY.toLocaleString()}</span>
 
               <span style="color: #333;">Payoneer（${priceCalculator.settings.payoneerRate}%）</span>
               <span class="detail-payoneer" style="text-align: right; color: #c62828;">-¥${result.payoneerFeeJPY.toLocaleString()}</span>
-
-              <span style="color: #333;">関税（設定${priceCalculator.settings.tariffRate}%）</span>
-              <span class="detail-tariff" style="text-align: right; color: #c62828;">-¥${result.tariffJPY.toLocaleString()}</span>
 
               <span style="color: #333;">送料（${result.shippingMethodName}）</span>
               <span class="detail-shipping" style="text-align: right; color: #c62828;">-¥${result.shippingCostJPY.toLocaleString()}</span>
@@ -362,7 +365,7 @@
               <span class="detail-profit" style="text-align: right; color: #2e7d32; border-top: 1px solid #ddd; padding-top: 4px;">¥${result.targetProfitJPY.toLocaleString()}</span>
             </div>
             <div style="margin-top: 6px; font-size: 10px; color: #555;">
-              為替: $1 = ¥${result.exchangeRate}
+              為替: $1 = ¥${result.exchangeRate} / 実際の関税: $${result.tariffUSD.toFixed(2)} (¥${result.tariffJPY.toLocaleString()})
             </div>
           </div>
         </details>

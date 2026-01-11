@@ -194,44 +194,47 @@ class PriceCalculator {
       ddpPriceUSD = dduPriceUSD + tariffAmounts.adjustedTariff;
     }
 
-    // 売上金額（円）- 手数料計算は常にDDP価格ベース
+    // 売上金額（円）
     const ddpPriceJPY = ddpPriceUSD * s.exchangeRate;
     const dduPriceJPY = dduPriceUSD * s.exchangeRate;
 
-    // 手数料計算（DDP価格ベース）
-    const ebayFeeJPY = ddpPriceJPY * feeRate;
-    const adFeeJPY = ddpPriceJPY * adRate;
-    const afterEbayFees = ddpPriceJPY - ebayFeeJPY - adFeeJPY;
-    const payoneerFeeJPY = afterEbayFees * payoneerRate;
-    const afterPayoneer = afterEbayFees - payoneerFeeJPY;
-
-    // 実際の関税額（円）- 調整関税ではなく実際に支払う関税
-    const actualTariffJPY = tariffAmounts.actualTariff * s.exchangeRate;
-
-    // 関税支払い後の金額
-    const afterTariff = afterPayoneer - actualTariffJPY;
-
-    // 利益を確保した場合の仕入れ上限
-    // 利益率 = 利益 / DDP売上（元ツールと同じ計算方式）
-    const targetProfitJPY = ddpPriceJPY * targetProfitRate;
+    // 順方向の計算式:
+    // DDU価格 = (送料 + 仕入れ) / (1 - (手数料率 + 利益率 + 広告費率 + ペイオニア)) / 為替
+    // 逆算:
+    // 送料 + 仕入れ = DDU価格 × 為替 × (1 - (手数料率 + 利益率 + 広告費率 + ペイオニア))
+    // 仕入れ = DDU価格 × 為替 × (1 - (手数料率 + 利益率 + 広告費率 + ペイオニア)) - 送料
+    const deductionRate = 1 - (feeRate + targetProfitRate + adRate + payoneerRate);
+    const availableForCostAndShipping = dduPriceJPY * deductionRate;
 
     // 反復計算で仕入れ価格と送料を求める
-    let maxCostJPY = afterTariff - targetProfitJPY;
+    let maxCostJPY = availableForCostAndShipping - shippingCostJPY;
     let prevCostJPY = 0;
 
     for (let i = 0; i < 10; i++) {
       shippingCostJPY = this._calculateShippingCost(maxCostJPY);
       prevCostJPY = maxCostJPY;
-      maxCostJPY = afterTariff - shippingCostJPY - targetProfitJPY;
+      maxCostJPY = availableForCostAndShipping - shippingCostJPY;
       if (Math.abs(maxCostJPY - prevCostJPY) < 1) break;
     }
 
+    // 手数料内訳（表示用）
+    const ebayFeeJPY = dduPriceJPY * feeRate;
+    const adFeeJPY = dduPriceJPY * adRate;
+    const payoneerFeeJPY = dduPriceJPY * payoneerRate;
+    const totalFeesJPY = ebayFeeJPY + adFeeJPY + payoneerFeeJPY;
+    const actualTariffJPY = tariffAmounts.actualTariff * s.exchangeRate;
+
+    // 目標利益額
+    const targetProfitJPY = dduPriceJPY * targetProfitRate;
+
     // 利益0円の場合の仕入れ上限
-    const breakEvenCostJPY = afterTariff - shippingCostJPY;
+    const deductionRateNoProfit = 1 - (feeRate + adRate + payoneerRate);
+    const breakEvenCostJPY = dduPriceJPY * deductionRateNoProfit - shippingCostJPY;
 
     // 実際の利益計算（仕入れ上限で購入した場合）
-    const actualProfitJPY = afterTariff - maxCostJPY - shippingCostJPY;
-    const actualProfitRate = (actualProfitJPY / ddpPriceJPY) * 100;
+    // 利益 = DDU × 為替 × (1 - 手数料率 - 広告費率 - ペイオニア) - 送料 - 仕入れ
+    const actualProfitJPY = dduPriceJPY * deductionRateNoProfit - shippingCostJPY - maxCostJPY;
+    const actualProfitRate = (actualProfitJPY / dduPriceJPY) * 100;
 
     return {
       // 入力
@@ -289,52 +292,26 @@ class PriceCalculator {
     // 目標利益額
     const costJPY = mercariPriceJPY;
 
-    // 反復計算で販売価格を求める
-    // 初期値
-    let sellingPriceUSD = (costJPY + shippingCostJPY) / s.exchangeRate / (1 - feeRate - adRate - targetProfitRate);
-
-    for (let i = 0; i < 20; i++) {
-      // 関税計算
-      const tariffAmounts = this._calculateTariffAmounts(sellingPriceUSD, effectiveMethod);
-
-      // DDP価格
-      const ddpPrice = sellingPriceUSD + tariffAmounts.adjustedTariff;
-
-      // 利益計算
-      const ddpPriceJPY = ddpPrice * s.exchangeRate;
-      const ebayFeeJPY = ddpPriceJPY * feeRate;
-      const adFeeJPY = ddpPriceJPY * adRate;
-      const afterEbayFees = ddpPriceJPY - ebayFeeJPY - adFeeJPY;
-      const payoneerFeeJPY = afterEbayFees * payoneerRate;
-      const afterPayoneer = afterEbayFees - payoneerFeeJPY;
-      const actualTariffJPY = tariffAmounts.actualTariff * s.exchangeRate;
-      const calculatedProfit = afterPayoneer - actualTariffJPY - costJPY - shippingCostJPY;
-
-      // 目標利益率との差分（DDP価格ベース）
-      const currentProfitRate = calculatedProfit / ddpPriceJPY;
-      const rateDiff = targetProfitRate - currentProfitRate;
-
-      // 収束判定
-      if (Math.abs(rateDiff) < 0.0001) break;
-
-      // 販売価格を調整
-      sellingPriceUSD *= (1 + rateDiff);
-    }
+    // 一括シートV3と同じ計算式を使用
+    // DDU価格 = (送料 + 仕入れ) / (1 - (手数料率 + 利益率 + 広告費率 + ペイオニア手数料)) / 為替
+    const sellingPriceUSD = (shippingCostJPY + costJPY) / (1 - (feeRate + targetProfitRate + adRate + payoneerRate)) / s.exchangeRate;
 
     // 最終計算
     const tariffAmounts = this._calculateTariffAmounts(sellingPriceUSD, effectiveMethod);
     const ddpPriceUSD = sellingPriceUSD + tariffAmounts.adjustedTariff;
+    const dduPriceJPY = sellingPriceUSD * s.exchangeRate;
     const ddpPriceJPY = ddpPriceUSD * s.exchangeRate;
 
-    // 利益計算（手数料・利益率ともにDDPベース）
-    const ebayFeeJPY = ddpPriceJPY * feeRate;
-    const adFeeJPY = ddpPriceJPY * adRate;
-    const afterEbayFees = ddpPriceJPY - ebayFeeJPY - adFeeJPY;
-    const payoneerFeeJPY = afterEbayFees * payoneerRate;
-    const afterPayoneer = afterEbayFees - payoneerFeeJPY;
+    // 利益計算（一括シートV3と同じ）
+    // 利益 = DDU価格 × 為替 × (1 - (手数料率 + 広告費率 + ペイオニア手数料)) - 送料 - 仕入れ
+    const profitJPY = dduPriceJPY * (1 - (feeRate + adRate + payoneerRate)) - shippingCostJPY - costJPY;
+    const profitRate = (profitJPY / dduPriceJPY) * 100;
+
+    // 手数料内訳（表示用）
+    const ebayFeeJPY = dduPriceJPY * feeRate;
+    const adFeeJPY = dduPriceJPY * adRate;
+    const payoneerFeeJPY = dduPriceJPY * payoneerRate;
     const actualTariffJPY = tariffAmounts.actualTariff * s.exchangeRate;
-    const profitJPY = afterPayoneer - actualTariffJPY - costJPY - shippingCostJPY;
-    const profitRate = (profitJPY / ddpPriceJPY) * 100;
 
     return {
       // 入力
