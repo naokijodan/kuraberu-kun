@@ -547,6 +547,7 @@
 
   /**
    * 商品が読み込まれるまで待機してから分析
+   * 初回取得後、件数が少なければ自動リトライ
    */
   function waitForItemsAndAnalyze() {
     const statsEl = document.getElementById('kuraberu-mercari-stats');
@@ -554,96 +555,60 @@
       statsEl.innerHTML = `
         <div style="color: #666; font-size: 13px; text-align: center;">
           <div style="margin-bottom: 8px;">⏳ 商品データを読み込み中...</div>
-          <div style="font-size: 11px; color: #888;">ページ読み込み完了を待っています...</div>
         </div>
       `;
     }
 
-    // ネットワークアイドル検知 + DOM安定検知
-    waitForPageReady(() => {
-      const prices = extractPrices();
-      console.log('[しらべる君 メルカリ] ページ準備完了、データ取得:', prices.length, '件');
+    // まず即座に取得を試みる
+    let prices = extractPrices();
+    console.log('[しらべる君 メルカリ] 初回取得:', prices.length, '件');
 
-      if (prices.length > 0) {
-        collectedPrices = prices;
-        currentSearchKeyword = getSearchKeyword();
-        saveAccumulatedData();
-      }
+    // 十分なデータがあれば即座に表示
+    if (prices.length >= 30) {
+      console.log('[しらべる君 メルカリ] 十分なデータあり、即座に表示');
+      collectedPrices = prices;
+      currentSearchKeyword = getSearchKeyword();
+      saveAccumulatedData();
       updateStatsDisplay();
-    });
-  }
+      return;
+    }
 
-  /**
-   * ページの読み込み完了を検知
-   */
-  function waitForPageReady(callback) {
-    let networkIdleTimer = null;
-    let domStableTimer = null;
-    let lastDomChangeTime = Date.now();
-    let pendingRequests = 0;
-    let isComplete = false;
+    // データが少ない場合、自動リトライ
+    let retryCount = 0;
+    const maxRetries = 5;
+    let bestPrices = prices;
 
-    const complete = (reason) => {
-      if (isComplete) return;
-      isComplete = true;
-      console.log('[しらべる君 メルカリ] 読み込み完了:', reason);
+    const retry = () => {
+      retryCount++;
+      console.log(`[しらべる君 メルカリ] 自動リトライ ${retryCount}/${maxRetries}`);
 
-      // クリーンアップ
-      if (networkIdleTimer) clearTimeout(networkIdleTimer);
-      if (domStableTimer) clearTimeout(domStableTimer);
-      if (observer) observer.disconnect();
+      const newPrices = extractPrices();
+      console.log(`[しらべる君 メルカリ] リトライ結果: ${newPrices.length}件`);
 
-      callback();
-    };
-
-    // 1. DOM変更の監視（変更が1秒間なければ安定とみなす）
-    const observer = new MutationObserver(() => {
-      lastDomChangeTime = Date.now();
-      if (domStableTimer) clearTimeout(domStableTimer);
-      domStableTimer = setTimeout(() => {
-        complete('DOM安定（1秒間変更なし）');
-      }, 1000);
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-
-    // 2. ネットワークリクエストの監視
-    const originalFetch = window.fetch;
-    window.fetch = function(...args) {
-      pendingRequests++;
-      console.log('[しらべる君 メルカリ] fetch開始, pending:', pendingRequests);
-
-      return originalFetch.apply(this, args).finally(() => {
-        pendingRequests--;
-        console.log('[しらべる君 メルカリ] fetch完了, pending:', pendingRequests);
-
-        if (pendingRequests === 0) {
-          // 全リクエスト完了後、少し待ってから完了
-          if (networkIdleTimer) clearTimeout(networkIdleTimer);
-          networkIdleTimer = setTimeout(() => {
-            complete('ネットワークアイドル');
-          }, 500);
-        }
-      });
-    };
-
-    // 3. タイムアウト（最大8秒で強制完了）
-    setTimeout(() => {
-      complete('タイムアウト（8秒）');
-      // fetchを元に戻す
-      window.fetch = originalFetch;
-    }, 8000);
-
-    // 4. 即座にデータがある場合の早期完了チェック
-    setTimeout(() => {
-      const prices = extractPrices();
-      if (prices.length >= 20) { // 20件以上あれば十分読み込まれている
-        complete('早期完了（十分なデータ）');
+      // より多くのデータが取れたら更新
+      if (newPrices.length > bestPrices.length) {
+        bestPrices = newPrices;
+        console.log(`[しらべる君 メルカリ] ベスト更新: ${bestPrices.length}件`);
       }
-    }, 2000);
+
+      // 十分なデータが取れたら終了
+      if (bestPrices.length >= 30 || retryCount >= maxRetries) {
+        console.log(`[しらべる君 メルカリ] 最終結果: ${bestPrices.length}件`);
+        if (bestPrices.length > 0) {
+          collectedPrices = bestPrices;
+          currentSearchKeyword = getSearchKeyword();
+          saveAccumulatedData();
+        }
+        updateStatsDisplay();
+        return;
+      }
+
+      // 次のリトライ（1秒後）
+      setTimeout(retry, 1000);
+    };
+
+    // 1秒後に最初のリトライ
+    setTimeout(retry, 1000);
   }
 
   /**
