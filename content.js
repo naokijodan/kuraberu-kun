@@ -458,6 +458,23 @@
           <label>メルカリ検索キーワード:</label>
           <input type="text" class="kuraberu-keyword-input kuraberu-mercari-keyword-input" placeholder="検索キーワードを編集してください" value="${escapeHtml(originalTitle)}">
         </div>
+        <div class="kuraberu-section" style="margin-top: 8px;">
+          <label>販売状況:</label>
+          <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px;">
+              <input type="radio" name="mercari-status" value="all" checked style="margin: 0;">
+              すべて
+            </label>
+            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px;">
+              <input type="radio" name="mercari-status" value="on_sale" style="margin: 0;">
+              販売中
+            </label>
+            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px;">
+              <input type="radio" name="mercari-status" value="sold_out" style="margin: 0;">
+              売り切れ
+            </label>
+          </div>
+        </div>
         <div class="kuraberu-buttons">
           <button class="kuraberu-mercari-search-btn">🔍 メルカリで検索</button>
         </div>
@@ -516,8 +533,9 @@
     // メルカリ検索ボタン
     panel.querySelector('.kuraberu-mercari-search-btn').addEventListener('click', () => {
       const keyword = panel.querySelector('.kuraberu-mercari-keyword-input').value.trim();
+      const status = panel.querySelector('input[name="mercari-status"]:checked')?.value || 'all';
       if (keyword) {
-        openMercariSearch(keyword);
+        openMercariSearch(keyword, status);
       } else {
         showMessage(panel, '⚠️ メルカリ検索キーワードを入力してください', 'warning');
       }
@@ -527,8 +545,9 @@
     panel.querySelector('.kuraberu-mercari-keyword-input').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         const keyword = panel.querySelector('.kuraberu-mercari-keyword-input').value.trim();
+        const status = panel.querySelector('input[name="mercari-status"]:checked')?.value || 'all';
         if (keyword) {
-          openMercariSearch(keyword);
+          openMercariSearch(keyword, status);
         }
       }
     });
@@ -654,9 +673,17 @@
   /**
    * メルカリ検索ページを開く
    */
-  function openMercariSearch(keyword) {
+  function openMercariSearch(keyword, status = 'all') {
     // メルカリ検索URL
-    const mercariUrl = `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}`;
+    let mercariUrl = `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}`;
+
+    // 販売状況パラメータを追加
+    if (status === 'on_sale') {
+      mercariUrl += '&status=on_sale';
+    } else if (status === 'sold_out') {
+      mercariUrl += '&status=sold_out%7Ctrading';
+    }
+    // 'all'の場合はパラメータなし
 
     // バックグラウンドで開く
     chrome.runtime.sendMessage({
@@ -665,7 +692,7 @@
       active: true
     });
 
-    console.log('[しらべる君] メルカリ検索を開きました:', keyword);
+    console.log('[しらべる君] メルカリ検索を開きました:', keyword, '販売状況:', status);
   }
 
   /**
