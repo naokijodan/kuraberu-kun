@@ -554,51 +554,96 @@
       statsEl.innerHTML = `
         <div style="color: #666; font-size: 13px; text-align: center;">
           <div style="margin-bottom: 8px;">⏳ 商品データを読み込み中...</div>
-          <div style="font-size: 11px; color: #888;">しばらくお待ちください...</div>
+          <div style="font-size: 11px; color: #888;">ページ読み込み完了を待っています...</div>
         </div>
       `;
     }
 
-    let attempts = 0;
-    const maxAttempts = 10; // 最大10回試行
-    let lastCount = 0;
-    let stableCount = 0; // 安定カウント
-
-    const checkData = () => {
-      attempts++;
+    // ネットワークアイドル検知 + DOM安定検知
+    waitForPageReady(() => {
       const prices = extractPrices();
-      console.log(`[しらべる君 メルカリ] 試行${attempts}: ${prices.length}件 (前回: ${lastCount}件)`);
+      console.log('[しらべる君 メルカリ] ページ準備完了、データ取得:', prices.length, '件');
 
-      // 商品数が前回と同じなら安定カウントを増やす
-      if (prices.length > 0 && prices.length === lastCount) {
-        stableCount++;
-        console.log(`[しらべる君 メルカリ] 安定カウント: ${stableCount}`);
-      } else {
-        stableCount = 0; // リセット
+      if (prices.length > 0) {
+        collectedPrices = prices;
+        currentSearchKeyword = getSearchKeyword();
+        saveAccumulatedData();
       }
+      updateStatsDisplay();
+    });
+  }
 
-      lastCount = prices.length;
+  /**
+   * ページの読み込み完了を検知
+   */
+  function waitForPageReady(callback) {
+    let networkIdleTimer = null;
+    let domStableTimer = null;
+    let lastDomChangeTime = Date.now();
+    let pendingRequests = 0;
+    let isComplete = false;
 
-      // 3回連続で同じ数なら安定とみなす（より厳密に）
-      if (stableCount >= 3 || attempts >= maxAttempts) {
-        if (prices.length > 0) {
-          console.log('[しらべる君 メルカリ] データ確定:', prices.length, '件');
-          collectedPrices = prices;
-          currentSearchKeyword = getSearchKeyword();
-          saveAccumulatedData();
-          updateStatsDisplay();
-        } else {
-          updateStatsDisplay(); // 0件でも表示更新
-        }
-        return;
-      }
+    const complete = (reason) => {
+      if (isComplete) return;
+      isComplete = true;
+      console.log('[しらべる君 メルカリ] 読み込み完了:', reason);
 
-      // 次の試行（700ms後）- 少し余裕を持たせる
-      setTimeout(checkData, 700);
+      // クリーンアップ
+      if (networkIdleTimer) clearTimeout(networkIdleTimer);
+      if (domStableTimer) clearTimeout(domStableTimer);
+      if (observer) observer.disconnect();
+
+      callback();
     };
 
-    // 最初の待機（5秒後に開始）- ページ読み込み完了を十分待つ
-    setTimeout(checkData, 5000);
+    // 1. DOM変更の監視（変更が1秒間なければ安定とみなす）
+    const observer = new MutationObserver(() => {
+      lastDomChangeTime = Date.now();
+      if (domStableTimer) clearTimeout(domStableTimer);
+      domStableTimer = setTimeout(() => {
+        complete('DOM安定（1秒間変更なし）');
+      }, 1000);
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    // 2. ネットワークリクエストの監視
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+      pendingRequests++;
+      console.log('[しらべる君 メルカリ] fetch開始, pending:', pendingRequests);
+
+      return originalFetch.apply(this, args).finally(() => {
+        pendingRequests--;
+        console.log('[しらべる君 メルカリ] fetch完了, pending:', pendingRequests);
+
+        if (pendingRequests === 0) {
+          // 全リクエスト完了後、少し待ってから完了
+          if (networkIdleTimer) clearTimeout(networkIdleTimer);
+          networkIdleTimer = setTimeout(() => {
+            complete('ネットワークアイドル');
+          }, 500);
+        }
+      });
+    };
+
+    // 3. タイムアウト（最大8秒で強制完了）
+    setTimeout(() => {
+      complete('タイムアウト（8秒）');
+      // fetchを元に戻す
+      window.fetch = originalFetch;
+    }, 8000);
+
+    // 4. 即座にデータがある場合の早期完了チェック
+    setTimeout(() => {
+      const prices = extractPrices();
+      if (prices.length >= 20) { // 20件以上あれば十分読み込まれている
+        complete('早期完了（十分なデータ）');
+      }
+    }, 2000);
   }
 
   /**
