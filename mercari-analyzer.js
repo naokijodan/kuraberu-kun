@@ -557,8 +557,10 @@
 
     const allPrices = new Set(); // 重複防止
     let scrollCount = 0;
-    const maxScrolls = 5; // 最大5回スクロール
+    const maxScrolls = 15; // 最大15回スクロール（ページ全体をカバー）
     const originalScrollY = window.scrollY;
+
+    let lastScrollY = -1;
 
     const collectAndScroll = () => {
       // 現在表示されている価格を収集
@@ -570,17 +572,24 @@
 
       scrollCount++;
 
-      if (scrollCount >= maxScrolls) {
-        // 収集完了
+      // ページ末尾に到達したか確認
+      const currentScrollY = window.scrollY;
+      const isAtBottom = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 100);
+
+      if (scrollCount >= maxScrolls || isAtBottom || currentScrollY === lastScrollY) {
+        // 収集完了（最大回数、ページ末尾、またはスクロール不可）
+        console.log(`[しらべる君 メルカリ] スクロール終了理由: ${scrollCount >= maxScrolls ? '最大回数' : isAtBottom ? 'ページ末尾' : 'スクロール不可'}`);
         finishCollection();
         return;
       }
+
+      lastScrollY = currentScrollY;
 
       // 下にスクロール
       window.scrollBy(0, window.innerHeight * 0.8);
 
       // 少し待ってから次の収集
-      setTimeout(collectAndScroll, 800);
+      setTimeout(collectAndScroll, 600);
     };
 
     const finishCollection = () => {
