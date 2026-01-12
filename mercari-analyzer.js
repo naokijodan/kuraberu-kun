@@ -546,69 +546,68 @@
   }
 
   /**
-   * 商品が読み込まれるまで待機してから分析
-   * 初回取得後、件数が少なければ自動リトライ
+   * 自動スクロールしながら商品データを収集
    */
   function waitForItemsAndAnalyze() {
     const statsEl = document.getElementById('kuraberu-mercari-stats');
-    if (statsEl) {
-      statsEl.innerHTML = `
-        <div style="color: #666; font-size: 13px; text-align: center;">
-          <div style="margin-bottom: 8px;">⏳ 商品データを読み込み中...</div>
-        </div>
-      `;
-    }
 
-    // まず即座に取得を試みる
-    let prices = extractPrices();
-    console.log('[しらべる君 メルカリ] 初回取得:', prices.length, '件');
-
-    // 十分なデータがあれば即座に表示
-    if (prices.length >= 30) {
-      console.log('[しらべる君 メルカリ] 十分なデータあり、即座に表示');
-      collectedPrices = prices;
-      currentSearchKeyword = getSearchKeyword();
-      saveAccumulatedData();
-      updateStatsDisplay();
-      return;
-    }
-
-    // データが少ない場合、自動リトライ
-    let retryCount = 0;
-    const maxRetries = 5;
-    let bestPrices = prices;
-
-    const retry = () => {
-      retryCount++;
-      console.log(`[しらべる君 メルカリ] 自動リトライ ${retryCount}/${maxRetries}`);
-
-      const newPrices = extractPrices();
-      console.log(`[しらべる君 メルカリ] リトライ結果: ${newPrices.length}件`);
-
-      // より多くのデータが取れたら更新
-      if (newPrices.length > bestPrices.length) {
-        bestPrices = newPrices;
-        console.log(`[しらべる君 メルカリ] ベスト更新: ${bestPrices.length}件`);
+    const updateStatus = (message) => {
+      if (statsEl) {
+        statsEl.innerHTML = `
+          <div style="color: #666; font-size: 13px; text-align: center;">
+            <div style="margin-bottom: 8px;">⏳ ${message}</div>
+          </div>
+        `;
       }
+    };
 
-      // 十分なデータが取れたら終了
-      if (bestPrices.length >= 30 || retryCount >= maxRetries) {
-        console.log(`[しらべる君 メルカリ] 最終結果: ${bestPrices.length}件`);
-        if (bestPrices.length > 0) {
-          collectedPrices = bestPrices;
-          currentSearchKeyword = getSearchKeyword();
-          saveAccumulatedData();
-        }
-        updateStatsDisplay();
+    updateStatus('商品データを収集中...');
+
+    const allPrices = new Set(); // 重複防止
+    let scrollCount = 0;
+    const maxScrolls = 5; // 最大5回スクロール
+    const originalScrollY = window.scrollY;
+
+    const collectAndScroll = () => {
+      // 現在表示されている価格を収集
+      const currentPrices = extractPrices();
+      currentPrices.forEach(p => allPrices.add(p));
+
+      console.log(`[しらべる君 メルカリ] スクロール${scrollCount}: 現在${currentPrices.length}件, 累計${allPrices.size}件`);
+      updateStatus(`商品データを収集中... (${allPrices.size}件)`);
+
+      scrollCount++;
+
+      if (scrollCount >= maxScrolls) {
+        // 収集完了
+        finishCollection();
         return;
       }
 
-      // 次のリトライ（1秒後）
-      setTimeout(retry, 1000);
+      // 下にスクロール
+      window.scrollBy(0, window.innerHeight * 0.8);
+
+      // 少し待ってから次の収集
+      setTimeout(collectAndScroll, 800);
     };
 
-    // 1秒後に最初のリトライ
-    setTimeout(retry, 1000);
+    const finishCollection = () => {
+      // 元の位置に戻る
+      window.scrollTo(0, originalScrollY);
+
+      const prices = Array.from(allPrices);
+      console.log('[しらべる君 メルカリ] 収集完了:', prices.length, '件');
+
+      if (prices.length > 0) {
+        collectedPrices = prices;
+        currentSearchKeyword = getSearchKeyword();
+        saveAccumulatedData();
+      }
+      updateStatsDisplay();
+    };
+
+    // 少し待ってから開始
+    setTimeout(collectAndScroll, 500);
   }
 
   /**
