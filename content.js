@@ -453,6 +453,14 @@
           <button class="kuraberu-terapeak-btn">📊 テラピーク</button>
         </div>
         <div class="kuraberu-message"></div>
+        <div class="kuraberu-section-divider" style="border-top: 1px solid #e0e0e0; margin: 16px 0;"></div>
+        <div class="kuraberu-section">
+          <label>メルカリ検索キーワード:</label>
+          <input type="text" class="kuraberu-mercari-keyword-input" placeholder="検索キーワードを編集してください" value="${escapeHtml(originalTitle)}">
+        </div>
+        <div class="kuraberu-buttons">
+          <button class="kuraberu-mercari-search-btn">🔍 メルカリで検索</button>
+        </div>
       </div>
     `;
 
@@ -502,6 +510,26 @@
         openTerapeakSearch(keyword);
       } else {
         showMessage(panel, '⚠️ 検索キーワードを入力してください', 'warning');
+      }
+    });
+
+    // メルカリ検索ボタン
+    panel.querySelector('.kuraberu-mercari-search-btn').addEventListener('click', () => {
+      const keyword = panel.querySelector('.kuraberu-mercari-keyword-input').value.trim();
+      if (keyword) {
+        openMercariSearch(keyword);
+      } else {
+        showMessage(panel, '⚠️ メルカリ検索キーワードを入力してください', 'warning');
+      }
+    });
+
+    // メルカリ検索入力欄でEnterキー
+    panel.querySelector('.kuraberu-mercari-keyword-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const keyword = panel.querySelector('.kuraberu-mercari-keyword-input').value.trim();
+        if (keyword) {
+          openMercariSearch(keyword);
+        }
       }
     });
 
@@ -621,6 +649,23 @@
     });
 
     console.log('[しらべる君] テラピーク検索を開きました（日本・即決/BO）:', keyword);
+  }
+
+  /**
+   * メルカリ検索ページを開く
+   */
+  function openMercariSearch(keyword) {
+    // メルカリ検索URL
+    const mercariUrl = `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}`;
+
+    // バックグラウンドで開く
+    chrome.runtime.sendMessage({
+      action: 'openTab',
+      url: mercariUrl,
+      active: true
+    });
+
+    console.log('[しらべる君] メルカリ検索を開きました:', keyword);
   }
 
   /**

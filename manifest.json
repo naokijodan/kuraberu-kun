@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "しらべる君 - eBay価格リサーチ",
-  "version": "1.3.5",
+  "version": "1.4.0",
   "description": "メルカリ⇔eBay双方向リサーチ。AI翻訳、価格分析、テラピーク連携で輸出入をサポート",
   "permissions": ["storage"],
   "host_permissions": [
@@ -52,6 +52,12 @@
         "https://www.ebay.com/itm/*"
       ],
       "js": ["price-calculator.js", "ebay-product.js"]
+    },
+    {
+      "matches": [
+        "https://jp.mercari.com/search*"
+      ],
+      "js": ["mercari-analyzer.js"]
     }
   ]
 }
