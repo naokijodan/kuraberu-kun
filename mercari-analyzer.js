@@ -554,34 +554,51 @@
       statsEl.innerHTML = `
         <div style="color: #666; font-size: 13px; text-align: center;">
           <div style="margin-bottom: 8px;">⏳ 商品データを読み込み中...</div>
+          <div style="font-size: 11px; color: #888;">しばらくお待ちください...</div>
         </div>
       `;
     }
 
-    // __NEXT_DATA__は即座に利用可能なはずなので、短い待機で試行
-    setTimeout(() => {
-      const prices = extractPrices();
-      console.log('[しらべる君 メルカリ] 初回抽出:', prices.length, '件');
+    let attempts = 0;
+    const maxAttempts = 8; // 最大8回試行
+    let lastCount = 0;
+    let stableCount = 0; // 安定カウント
 
-      if (prices.length > 0) {
-        collectedPrices = prices;
-        currentSearchKeyword = getSearchKeyword();
-        saveAccumulatedData();
-        updateStatsDisplay();
+    const checkData = () => {
+      attempts++;
+      const prices = extractPrices();
+      console.log(`[しらべる君 メルカリ] 試行${attempts}: ${prices.length}件 (前回: ${lastCount}件)`);
+
+      // 商品数が前回と同じなら安定カウントを増やす
+      if (prices.length > 0 && prices.length === lastCount) {
+        stableCount++;
+        console.log(`[しらべる君 メルカリ] 安定カウント: ${stableCount}`);
       } else {
-        // 0件の場合は少し待ってリトライ
-        setTimeout(() => {
-          const retryPrices = extractPrices();
-          console.log('[しらべる君 メルカリ] リトライ抽出:', retryPrices.length, '件');
-          if (retryPrices.length > 0) {
-            collectedPrices = retryPrices;
-            currentSearchKeyword = getSearchKeyword();
-            saveAccumulatedData();
-          }
-          updateStatsDisplay();
-        }, 1000);
+        stableCount = 0; // リセット
       }
-    }, 300);
+
+      lastCount = prices.length;
+
+      // 2回連続で同じ数なら安定とみなす
+      if (stableCount >= 2 || attempts >= maxAttempts) {
+        if (prices.length > 0) {
+          console.log('[しらべる君 メルカリ] データ確定:', prices.length, '件');
+          collectedPrices = prices;
+          currentSearchKeyword = getSearchKeyword();
+          saveAccumulatedData();
+          updateStatsDisplay();
+        } else {
+          updateStatsDisplay(); // 0件でも表示更新
+        }
+        return;
+      }
+
+      // 次の試行（500ms後）
+      setTimeout(checkData, 500);
+    };
+
+    // 最初の待機（4秒後に開始）- ページ読み込み完了を待つ
+    setTimeout(checkData, 4000);
   }
 
   /**
