@@ -531,18 +531,10 @@
       analyzePage(true);
     });
 
-    // 累積データを読み込んでから初回分析
-    loadAccumulatedData().then((savedPrices) => {
-      if (savedPrices.length > 0) {
-        collectedPrices = savedPrices;
-        currentSearchKeyword = getSearchKeyword();
-        console.log('[しらべる君 メルカリ] 累積データ読み込み:', savedPrices.length, '件');
-        analyzePage(true);
-      } else {
-        // 初回分析: DOMが完全に読み込まれるまで待機してから分析
-        waitForItemsAndAnalyze();
-      }
-    });
+    // 仮想スクロール対応：常に自動スクロール収集を実行
+    console.log('[しらべる君 メルカリ] 自動スクロール収集を開始');
+    clearAccumulatedData(); // 古いデータをクリア
+    waitForItemsAndAnalyze();
   }
 
   /**
