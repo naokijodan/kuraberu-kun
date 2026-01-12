@@ -132,6 +132,89 @@
   }
 
   /**
+   * Next.jsの__NEXT_DATA__から価格データを抽出（高速・正確）
+   */
+  function extractPricesFromNextData() {
+    try {
+      const nextDataScript = document.getElementById('__NEXT_DATA__');
+      if (!nextDataScript) {
+        console.log('[しらべる君 メルカリ] __NEXT_DATA__が見つかりません');
+        return null;
+      }
+
+      const data = JSON.parse(nextDataScript.textContent);
+      const prices = [];
+
+      // Next.jsのデータ構造を探索
+      const searchData = data?.props?.pageProps;
+      if (!searchData) {
+        console.log('[しらべる君 メルカリ] pagePropsが見つかりません');
+        return null;
+      }
+
+      // 商品リストを探す（複数のパスを試す）
+      let items = searchData?.searchResult?.items ||
+                  searchData?.items ||
+                  searchData?.data?.items ||
+                  searchData?.search?.items ||
+                  null;
+
+      // dehydratedStateからも探す
+      if (!items && searchData?.dehydratedState?.queries) {
+        for (const query of searchData.dehydratedState.queries) {
+          if (query?.state?.data?.items) {
+            items = query.state.data.items;
+            break;
+          }
+          if (query?.state?.data?.data) {
+            items = query.state.data.data;
+            break;
+          }
+        }
+      }
+
+      if (!items || !Array.isArray(items)) {
+        console.log('[しらべる君 メルカリ] 商品データが見つかりません', Object.keys(searchData));
+        return null;
+      }
+
+      console.log('[しらべる君 メルカリ] __NEXT_DATA__から商品発見:', items.length, '件');
+
+      items.forEach((item, index) => {
+        // PR/広告商品を除外
+        if (item.itemType === 'ITEM_TYPE_BEYOND' ||
+            item.itemType === 'AD' ||
+            item.isAd ||
+            item.isBeyond) {
+          return;
+        }
+
+        // 価格を取得
+        let price = 0;
+        if (item.price) {
+          price = typeof item.price === 'number' ? item.price : parseInt(item.price, 10);
+        } else if (item.displayPrice) {
+          price = parseInt(String(item.displayPrice).replace(/[¥,]/g, ''), 10);
+        }
+
+        if (price > 0 && price < 100000000) {
+          prices.push(price);
+          if (index < 3) {
+            console.log(`[しらべる君 メルカリ] NEXT_DATA商品${index + 1}: ¥${price.toLocaleString()} (${item.name?.substring(0, 20)}...)`);
+          }
+        }
+      });
+
+      console.log('[しらべる君 メルカリ] __NEXT_DATA__から抽出:', prices.length, '件');
+      return prices.length > 0 ? prices : null;
+
+    } catch (error) {
+      console.error('[しらべる君 メルカリ] __NEXT_DATA__解析エラー:', error);
+      return null;
+    }
+  }
+
+  /**
    * PR/スポンサー商品かどうかを判定
    */
   function isAdOrSponsor(item) {
@@ -174,6 +257,14 @@
    * ページから価格データを抽出
    */
   function extractPrices() {
+    // まず__NEXT_DATA__から取得を試みる（高速・正確）
+    const nextDataPrices = extractPricesFromNextData();
+    if (nextDataPrices && nextDataPrices.length > 0) {
+      return nextDataPrices;
+    }
+
+    // フォールバック: DOMから抽出
+    console.log('[しらべる君 メルカリ] DOMからの抽出にフォールバック');
     const prices = [];
     const seenItems = new Set(); // 重複防止用
     let skippedAds = 0;
@@ -463,54 +554,34 @@
       statsEl.innerHTML = `
         <div style="color: #666; font-size: 13px; text-align: center;">
           <div style="margin-bottom: 8px;">⏳ 商品データを読み込み中...</div>
-          <div style="font-size: 11px; color: #888;">（ページの読み込み完了を待っています）</div>
         </div>
       `;
     }
 
-    let attempts = 0;
-    const maxAttempts = 10; // 最大10回試行（5秒間）
-    let lastCount = 0;
-
-    const checkItems = () => {
-      attempts++;
+    // __NEXT_DATA__は即座に利用可能なはずなので、短い待機で試行
+    setTimeout(() => {
       const prices = extractPrices();
-      console.log(`[しらべる君 メルカリ] 待機中... 試行${attempts}: ${prices.length}件`);
+      console.log('[しらべる君 メルカリ] 初回抽出:', prices.length, '件');
 
-      // 商品数が安定したか確認（前回と同じ数 かつ 0件でない）
-      if (prices.length > 0 && prices.length === lastCount) {
-        // 安定した - 分析実行
-        console.log('[しらべる君 メルカリ] 商品数安定:', prices.length, '件');
+      if (prices.length > 0) {
         collectedPrices = prices;
         currentSearchKeyword = getSearchKeyword();
         saveAccumulatedData();
         updateStatsDisplay();
-        return;
-      }
-
-      lastCount = prices.length;
-
-      if (attempts >= maxAttempts) {
-        // 最大試行回数に達した - 現在のデータで分析
-        console.log('[しらべる君 メルカリ] 最大待機時間到達:', prices.length, '件');
-        if (prices.length > 0) {
-          collectedPrices = prices;
-          currentSearchKeyword = getSearchKeyword();
-          saveAccumulatedData();
+      } else {
+        // 0件の場合は少し待ってリトライ
+        setTimeout(() => {
+          const retryPrices = extractPrices();
+          console.log('[しらべる君 メルカリ] リトライ抽出:', retryPrices.length, '件');
+          if (retryPrices.length > 0) {
+            collectedPrices = retryPrices;
+            currentSearchKeyword = getSearchKeyword();
+            saveAccumulatedData();
+          }
           updateStatsDisplay();
-        } else {
-          // まだ0件の場合はもう少し待つ
-          analyzePage();
-        }
-        return;
+        }, 1000);
       }
-
-      // 500ms後に再チェック
-      setTimeout(checkItems, 500);
-    };
-
-    // 最初の待機（1秒後に開始）
-    setTimeout(checkItems, 1000);
+    }, 300);
   }
 
   /**
