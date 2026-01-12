@@ -136,64 +136,115 @@
    */
   function extractPrices() {
     const prices = [];
+    const seenItems = new Set(); // 重複防止用
 
-    // メルカリの商品アイテムを取得（複数のセレクタを試す）
-    const itemSelectors = [
+    // 複数のセレクタを試す（メルカリはDOM構造が変わることがある）
+    const selectors = [
       '[data-testid="item-cell"]',
-      'li[data-testid="item-cell"]',
-      'div[data-testid="item-cell"]',
-      '.merItemThumbnail',
-      '[class*="ItemGrid"] > div',
-      '[class*="item-grid"] > div'
+      '[data-testid="search-result"] li',
+      'li[data-testid]',
+      'a[href^="/item/"]'
     ];
 
     let items = [];
-    for (const selector of itemSelectors) {
+    for (const selector of selectors) {
       items = document.querySelectorAll(selector);
       if (items.length > 0) {
-        console.log('[しらべる君 メルカリ] 商品発見セレクタ:', selector, '件数:', items.length);
+        console.log('[しらべる君 メルカリ] セレクタ成功:', selector, '件数:', items.length);
         break;
       }
     }
 
-    // フォールバック: 価格要素を直接探す
+    // 商品リンクから直接取得するアプローチ
     if (items.length === 0) {
-      console.log('[しらべる君 メルカリ] フォールバック: 価格要素を直接探索');
-      const priceElements = document.querySelectorAll('[class*="price"], [class*="Price"], span[class*="number"]');
-      priceElements.forEach(el => {
-        const price = parsePriceText(el.textContent);
-        if (price > 0 && price < 10000000) {
-          prices.push(price);
-        }
-      });
-      console.log('[しらべる君 メルカリ] フォールバックで抽出した価格:', prices.length, '件');
-      return prices;
+      // 商品リンクを全て取得して、そこから価格を探す
+      items = document.querySelectorAll('a[href*="/item/m"]');
+      console.log('[しらべる君 メルカリ] 商品リンクから取得:', items.length, '件');
     }
 
-    items.forEach((item) => {
-      // 価格要素を探す（複数のセレクタを試す）
-      const priceSelectors = [
-        '[class*="price"]',
-        '[class*="Price"]',
-        'span[class*="number"]',
-        'mer-price',
-        '[data-testid="price"]'
-      ];
+    console.log('[しらべる君 メルカリ] 検出アイテム数:', items.length);
 
-      for (const selector of priceSelectors) {
-        const priceEl = item.querySelector(selector);
+    items.forEach((item, index) => {
+      // 商品IDで重複チェック（href属性から商品IDを抽出）
+      const link = item.querySelector('a[href*="/item/"]') || (item.tagName === 'A' ? item : null);
+      if (link) {
+        const href = link.getAttribute('href');
+        const itemIdMatch = href.match(/\/item\/([a-zA-Z0-9]+)/);
+        if (itemIdMatch) {
+          const itemId = itemIdMatch[1];
+          if (seenItems.has(itemId)) {
+            return; // 既に処理済み
+          }
+          seenItems.add(itemId);
+        }
+      }
+
+      let price = 0;
+      let priceSource = '';
+
+      // 方法1: 価格専用のspan要素を探す（¥記号を含む）
+      const priceSpans = item.querySelectorAll('span');
+      for (const span of priceSpans) {
+        const text = span.textContent.trim();
+        // ¥で始まり、数字のみ（子要素がない単純なテキスト）
+        if (text.match(/^¥[\d,]+$/) && span.children.length === 0) {
+          const match = text.match(/¥([\d,]+)/);
+          if (match) {
+            const p = parseInt(match[1].replace(/,/g, ''), 10);
+            if (p > 0 && p < 100000000) {
+              price = p;
+              priceSource = 'span直接';
+              break;
+            }
+          }
+        }
+      }
+
+      // 方法2: merPrice クラスから取得
+      if (price === 0) {
+        const merPrice = item.querySelector('[class*="merPrice"]');
+        if (merPrice) {
+          const priceText = merPrice.textContent.trim();
+          const match = priceText.match(/¥([\d,]+)/);
+          if (match) {
+            const p = parseInt(match[1].replace(/,/g, ''), 10);
+            if (p > 0 && p < 100000000) {
+              price = p;
+              priceSource = 'merPrice';
+            }
+          }
+        }
+      }
+
+      // 方法3: price を含むクラス名から取得
+      if (price === 0) {
+        const priceEl = item.querySelector('[class*="price"]');
         if (priceEl) {
           const priceText = priceEl.textContent.trim();
-          const price = parsePriceText(priceText);
-          if (price > 0 && price < 10000000) {
-            prices.push(price);
-            break;
+          const match = priceText.match(/¥([\d,]+)/);
+          if (match) {
+            const p = parseInt(match[1].replace(/,/g, ''), 10);
+            if (p > 0 && p < 100000000) {
+              price = p;
+              priceSource = 'priceクラス';
+            }
           }
+        }
+      }
+
+      if (price > 0) {
+        prices.push(price);
+        if (index < 5) {
+          console.log(`[しらべる君 メルカリ] 商品${index + 1}: ¥${price.toLocaleString()} (${priceSource})`);
         }
       }
     });
 
     console.log('[しらべる君 メルカリ] 抽出した価格:', prices.length, '件');
+    if (prices.length > 0) {
+      console.log('[しらべる君 メルカリ] 価格サンプル:', prices.slice(0, 10).map(p => '¥' + p.toLocaleString()));
+      console.log('[しらべる君 メルカリ] 最小:', Math.min(...prices), '最大:', Math.max(...prices));
+    }
     return prices;
   }
 
