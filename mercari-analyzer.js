@@ -448,9 +448,69 @@
         console.log('[しらべる君 メルカリ] 累積データ読み込み:', savedPrices.length, '件');
         analyzePage(true);
       } else {
-        analyzePage();
+        // 初回分析: DOMが完全に読み込まれるまで待機してから分析
+        waitForItemsAndAnalyze();
       }
     });
+  }
+
+  /**
+   * 商品が読み込まれるまで待機してから分析
+   */
+  function waitForItemsAndAnalyze() {
+    const statsEl = document.getElementById('kuraberu-mercari-stats');
+    if (statsEl) {
+      statsEl.innerHTML = `
+        <div style="color: #666; font-size: 13px; text-align: center;">
+          <div style="margin-bottom: 8px;">⏳ 商品データを読み込み中...</div>
+          <div style="font-size: 11px; color: #888;">（ページの読み込み完了を待っています）</div>
+        </div>
+      `;
+    }
+
+    let attempts = 0;
+    const maxAttempts = 10; // 最大10回試行（5秒間）
+    let lastCount = 0;
+
+    const checkItems = () => {
+      attempts++;
+      const prices = extractPrices();
+      console.log(`[しらべる君 メルカリ] 待機中... 試行${attempts}: ${prices.length}件`);
+
+      // 商品数が安定したか確認（前回と同じ数 かつ 0件でない）
+      if (prices.length > 0 && prices.length === lastCount) {
+        // 安定した - 分析実行
+        console.log('[しらべる君 メルカリ] 商品数安定:', prices.length, '件');
+        collectedPrices = prices;
+        currentSearchKeyword = getSearchKeyword();
+        saveAccumulatedData();
+        updateStatsDisplay();
+        return;
+      }
+
+      lastCount = prices.length;
+
+      if (attempts >= maxAttempts) {
+        // 最大試行回数に達した - 現在のデータで分析
+        console.log('[しらべる君 メルカリ] 最大待機時間到達:', prices.length, '件');
+        if (prices.length > 0) {
+          collectedPrices = prices;
+          currentSearchKeyword = getSearchKeyword();
+          saveAccumulatedData();
+          updateStatsDisplay();
+        } else {
+          // まだ0件の場合はもう少し待つ
+          analyzePage();
+        }
+        return;
+      }
+
+      // 500ms後に再チェック
+      setTimeout(checkItems, 500);
+    };
+
+    // 最初の待機（1秒後に開始）
+    setTimeout(checkItems, 1000);
   }
 
   /**
