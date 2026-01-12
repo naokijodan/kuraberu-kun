@@ -560,7 +560,7 @@
     }
 
     let attempts = 0;
-    const maxAttempts = 8; // 最大8回試行
+    const maxAttempts = 10; // 最大10回試行
     let lastCount = 0;
     let stableCount = 0; // 安定カウント
 
@@ -579,8 +579,8 @@
 
       lastCount = prices.length;
 
-      // 2回連続で同じ数なら安定とみなす
-      if (stableCount >= 2 || attempts >= maxAttempts) {
+      // 3回連続で同じ数なら安定とみなす（より厳密に）
+      if (stableCount >= 3 || attempts >= maxAttempts) {
         if (prices.length > 0) {
           console.log('[しらべる君 メルカリ] データ確定:', prices.length, '件');
           collectedPrices = prices;
@@ -593,12 +593,12 @@
         return;
       }
 
-      // 次の試行（500ms後）
-      setTimeout(checkData, 500);
+      // 次の試行（700ms後）- 少し余裕を持たせる
+      setTimeout(checkData, 700);
     };
 
-    // 最初の待機（4秒後に開始）- ページ読み込み完了を待つ
-    setTimeout(checkData, 4000);
+    // 最初の待機（5秒後に開始）- ページ読み込み完了を十分待つ
+    setTimeout(checkData, 5000);
   }
 
   /**
