@@ -212,14 +212,18 @@ function applySettingsToForm(settings) {
 
 /**
  * 要素から値を安全に取得するヘルパー関数
+ * 注意: 0も有効な値として扱うため、|| ではなく明示的なチェックを使用
  */
 function getElementValue(id, defaultValue, isNumber = true) {
   const el = document.getElementById(id);
   if (!el) return defaultValue;
   if (isNumber) {
-    return parseFloat(el.value) || defaultValue;
+    const parsed = parseFloat(el.value);
+    // NaNの場合のみデフォルト値を返す（0は有効な値として扱う）
+    return isNaN(parsed) ? defaultValue : parsed;
   }
-  return el.value || defaultValue;
+  // 文字列の場合：空文字のみデフォルト値を返す
+  return el.value !== '' ? el.value : defaultValue;
 }
 
 /**
