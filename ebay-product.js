@@ -60,86 +60,52 @@
    * eBayのセラー情報を取得
    */
   function getSellerInfo() {
-    // セラーカード内のストアリンクを優先的に探す（広告ではなく実際のセラー）
-    // セラーカードは x-sellercard-atf クラスを持つ要素内にある
-    const sellerCardSelectors = [
-      // セラーカード内のストアリンク
+    // ========================================
+    // 1. まずストアリンク（/str/）からショップ名を取得（優先）
+    // ========================================
+    const storeSelectors = [
+      // セラーカード内のストアリンク（広告ではなく実際のセラー）
       '.x-sellercard-atf a[href*="/str/"]',
       'div[data-testid="x-sellercard-atf"] a[href*="/str/"]',
-      // セラーセクション内
-      '.ux-seller-section a[href*="/str/"]',
-      'a[data-testid="ux-seller-section__item--link"]'
+      '.ux-seller-section a[href*="/str/"]'
     ];
 
-    for (const selector of sellerCardSelectors) {
+    for (const selector of storeSelectors) {
       const storeLink = document.querySelector(selector);
       if (storeLink) {
         const href = storeLink.getAttribute('href') || '';
         const strMatch = href.match(/\/str\/([^\/\?]+)/);
         if (strMatch) {
           const platformId = decodeURIComponent(strMatch[1]);
-          // セラー名はリンクテキストまたはplatformIdから取得
-          let name = '';
+          // ショップ名はリンクテキストから取得
+          let storeName = '';
           const nameSpan = storeLink.querySelector('span.ux-textspans--BOLD') || storeLink.querySelector('span');
           if (nameSpan) {
-            name = nameSpan.textContent?.trim() || '';
+            storeName = nameSpan.textContent?.trim() || '';
           }
-          if (!name) {
-            name = storeLink.textContent?.trim() || platformId;
+          if (!storeName) {
+            storeName = storeLink.textContent?.trim() || '';
+          }
+          // ショップ名が取得できなければplatformIdを使用
+          if (!storeName) {
+            storeName = platformId;
           }
           const url = `https://www.ebay.com/str/${encodeURIComponent(platformId)}`;
 
-          console.log('[しらべる君 eBay商品] セラー情報取得(sellercard):', { name, platformId, url });
-          return { name, platformId, url, platform: 'ebay' };
+          console.log('[しらべる君 eBay商品] ストア情報取得:', { storeName, platformId, url });
+          return { name: storeName, platformId, url, platform: 'ebay' };
         }
       }
     }
 
-    // セラー名のセレクタ（ストアリンクが見つからない場合）
-    const sellerNameSelectors = [
-      'a[data-testid="ux-seller-section__item--link"] span.ux-textspans--BOLD',
-      'a.ux-seller-section__item--link span',
-      'div[data-testid="x-sellercard-atf"] a span.ux-textspans--BOLD',
-      '.x-sellercard-atf__info__about-seller a span'
-    ];
-
-    for (const selector of sellerNameSelectors) {
-      const el = document.querySelector(selector);
-      if (el) {
-        const name = el.textContent?.trim() || '';
-        if (name && name.length > 0) {
-          // 親要素からリンクを取得してストアURLを探す
-          const parentLink = el.closest('a');
-          let url = '';
-          let platformId = name;
-
-          if (parentLink) {
-            const href = parentLink.getAttribute('href') || '';
-            if (href.includes('/str/')) {
-              const match = href.match(/\/str\/([^\/\?]+)/);
-              if (match) {
-                platformId = decodeURIComponent(match[1]);
-                url = `https://www.ebay.com/str/${encodeURIComponent(platformId)}`;
-              }
-            }
-          }
-          // ストアURLが取得できなければ名前からURLを構築
-          if (!url) {
-            // 名前をURL用に変換（スペースを削除、小文字化）
-            const urlName = name.replace(/\s+/g, '').toLowerCase();
-            url = `https://www.ebay.com/str/${encodeURIComponent(urlName)}`;
-          }
-
-          console.log('[しらべる君 eBay商品] セラー情報取得:', { name, platformId, url });
-          return { name, platformId, url, platform: 'ebay' };
-        }
-      }
-    }
-
-    // 最終フォールバック: セラーカード内の /usr/ リンクから名前を取得
+    // ========================================
+    // 2. ストアリンクがない場合、セラーID（/usr/）を取得
+    //    ただしURLは /str/ 形式で構築（ストアページにリダイレクトされる）
+    // ========================================
     const usrLinkSelectors = [
       '.x-sellercard-atf a[href*="/usr/"]',
-      'div[data-testid="x-sellercard-atf"] a[href*="/usr/"]'
+      'div[data-testid="x-sellercard-atf"] a[href*="/usr/"]',
+      '.ux-seller-section a[href*="/usr/"]'
     ];
 
     for (const selector of usrLinkSelectors) {
@@ -149,11 +115,49 @@
         const match = href.match(/\/usr\/([^\/\?]+)/);
         if (match) {
           const platformId = decodeURIComponent(match[1]);
-          const name = usrLink.textContent?.trim() || platformId;
-          // /usr/ の情報から /str/ URLを構築
+          // セラー名はリンクテキストから取得
+          let sellerName = usrLink.textContent?.trim() || platformId;
+          // URLは /str/ 形式で構築
           const url = `https://www.ebay.com/str/${encodeURIComponent(platformId)}`;
 
-          console.log('[しらべる君 eBay商品] セラー情報取得(usr->str):', { name, platformId, url });
+          console.log('[しらべる君 eBay商品] セラー情報取得(usr):', { sellerName, platformId, url });
+          return { name: sellerName, platformId, url, platform: 'ebay' };
+        }
+      }
+    }
+
+    // ========================================
+    // 3. 最終フォールバック: セラーカード内のテキストから名前を取得
+    // ========================================
+    const sellerNameSelectors = [
+      '.x-sellercard-atf__info__about-seller a span.ux-textspans--BOLD',
+      '.x-sellercard-atf a span.ux-textspans--BOLD',
+      'div[data-testid="x-sellercard-atf"] a span.ux-textspans--BOLD'
+    ];
+
+    for (const selector of sellerNameSelectors) {
+      const el = document.querySelector(selector);
+      if (el) {
+        const name = el.textContent?.trim() || '';
+        if (name && name.length > 0) {
+          // 親要素からリンクを取得
+          const parentLink = el.closest('a');
+          let platformId = name.replace(/\s+/g, '').toLowerCase();
+
+          if (parentLink) {
+            const href = parentLink.getAttribute('href') || '';
+            // /str/ または /usr/ からplatformIdを取得
+            const strMatch = href.match(/\/str\/([^\/\?]+)/);
+            const usrMatch = href.match(/\/usr\/([^\/\?]+)/);
+            if (strMatch) {
+              platformId = decodeURIComponent(strMatch[1]);
+            } else if (usrMatch) {
+              platformId = decodeURIComponent(usrMatch[1]);
+            }
+          }
+
+          const url = `https://www.ebay.com/str/${encodeURIComponent(platformId)}`;
+          console.log('[しらべる君 eBay商品] セラー情報取得(fallback):', { name, platformId, url });
           return { name, platformId, url, platform: 'ebay' };
         }
       }
