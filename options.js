@@ -990,7 +990,7 @@ async function loadSellerList() {
         .join(', ');
 
       html += `
-        <div class="seller-item" data-seller-id="${seller.id}">
+        <div class="seller-item" data-seller-id="${seller.id}" data-seller-url="${escapeHtml(seller.url)}">
           <div class="seller-item-header">
             <span class="seller-type-icon" title="${typeInfo.label}">${typeInfo.icon}</span>
             <span class="seller-platform-icon" title="${seller.platform}">${platformIcon}</span>
@@ -999,15 +999,33 @@ async function loadSellerList() {
           ${seller.memo ? `<div class="seller-memo">${escapeHtml(seller.memo)}</div>` : ''}
           ${categoryNames ? `<div class="seller-memo">📁 ${escapeHtml(categoryNames)}</div>` : ''}
           <div class="seller-actions">
-            <button class="seller-action-btn" onclick="openSellerPage('${escapeHtml(seller.url)}')">🔗 開く</button>
-            <button class="seller-action-btn" onclick="editSeller('${seller.id}')">✏️ 編集</button>
-            <button class="seller-action-btn delete" onclick="deleteSeller('${seller.id}')">🗑️ 削除</button>
+            <button class="seller-action-btn" data-action="open">🔗 開く</button>
+            <button class="seller-action-btn" data-action="edit">✏️ 編集</button>
+            <button class="seller-action-btn delete" data-action="delete">🗑️ 削除</button>
           </div>
         </div>
       `;
     });
 
     listContainer.innerHTML = html;
+
+    // イベントリスナーを設定
+    listContainer.querySelectorAll('.seller-action-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const action = btn.dataset.action;
+        const sellerItem = btn.closest('.seller-item');
+        const sellerId = sellerItem.dataset.sellerId;
+        const sellerUrl = sellerItem.dataset.sellerUrl;
+
+        if (action === 'open') {
+          openSellerPage(sellerUrl);
+        } else if (action === 'edit') {
+          await editSeller(sellerId);
+        } else if (action === 'delete') {
+          await deleteSeller(sellerId);
+        }
+      });
+    });
   } catch (error) {
     console.error('セラーリスト読み込みエラー:', error);
   }
@@ -1211,7 +1229,3 @@ async function exportAsCsv() {
   }
 }
 
-// セラー管理関数をグローバルに公開
-window.openSellerPage = openSellerPage;
-window.editSeller = editSeller;
-window.deleteSeller = deleteSeller;
