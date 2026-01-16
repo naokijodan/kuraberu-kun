@@ -1153,8 +1153,11 @@ async function renderModalCategoryButtons() {
     categoriesContainer.innerHTML = '<span style="color: #999; font-size: 11px;">カテゴリがありません（下のボタンで追加）</span>';
   } else {
     categoriesContainer.innerHTML = categories.map(cat => `
-      <button class="modal-category-btn ${currentEditingSellerCategoryIds.includes(cat.id) ? 'selected' : ''}"
-              data-category-id="${cat.id}">${cat.name}</button>
+      <div class="modal-category-item">
+        <button class="modal-category-btn ${currentEditingSellerCategoryIds.includes(cat.id) ? 'selected' : ''}"
+                data-category-id="${cat.id}">${cat.name}</button>
+        <button class="modal-category-delete" data-category-id="${cat.id}" title="カテゴリを削除">×</button>
+      </div>
     `).join('');
 
     // カテゴリボタンのイベント
@@ -1172,6 +1175,51 @@ async function renderModalCategoryButtons() {
         }
       });
     });
+
+    // カテゴリ削除ボタンのイベント
+    categoriesContainer.querySelectorAll('.modal-category-delete').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const catId = btn.dataset.categoryId;
+        const catName = btn.previousElementSibling.textContent;
+        await deleteCategoryInModal(catId, catName);
+      });
+    });
+  }
+}
+
+/**
+ * モーダル内でカテゴリを削除
+ */
+async function deleteCategoryInModal(categoryId, categoryName) {
+  if (!confirm(`カテゴリ「${categoryName}」を削除しますか？\n（セラーは削除されません）`)) {
+    return;
+  }
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'seller_deleteCategory',
+      categoryId: categoryId
+    });
+
+    if (response && response.success) {
+      // 選択中のカテゴリからも削除
+      currentEditingSellerCategoryIds = currentEditingSellerCategoryIds.filter(id => id !== categoryId);
+
+      // カテゴリボタンを再描画
+      await renderModalCategoryButtons();
+
+      // メインのカテゴリセレクトも更新
+      await loadCategoryOptions();
+      await loadSellerStats();
+
+      showToast(`カテゴリ「${categoryName}」を削除しました`, 'success');
+    } else {
+      showToast('削除に失敗しました', 'error');
+    }
+  } catch (error) {
+    console.error('カテゴリ削除エラー:', error);
+    showToast('削除中にエラーが発生しました', 'error');
   }
 }
 
