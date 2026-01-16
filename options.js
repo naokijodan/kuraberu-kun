@@ -1110,7 +1110,7 @@ async function editSeller(sellerId) {
 
     // モーダルにデータを設定
     document.getElementById('editSellerId').value = sellerId;
-    document.getElementById('editSellerName').textContent = seller.name;
+    document.getElementById('editSellerName').value = seller.name;
     document.getElementById('editSellerMemo').value = seller.memo || '';
 
     // タイプボタンを設定
@@ -1269,7 +1269,14 @@ function closeEditModal() {
  */
 async function saveEditSeller() {
   const sellerId = document.getElementById('editSellerId').value;
+  const name = document.getElementById('editSellerName').value.trim();
   const memo = document.getElementById('editSellerMemo').value;
+
+  // セラー名が空の場合はエラー
+  if (!name) {
+    showToast('セラー名を入力してください', 'error');
+    return;
+  }
 
   // 選択されたタイプを取得
   const selectedTypeBtn = document.querySelector('#editSellerTypes .modal-type-btn.selected');
@@ -1283,7 +1290,7 @@ async function saveEditSeller() {
     const response = await chrome.runtime.sendMessage({
       action: 'seller_update',
       sellerId: sellerId,
-      updates: { type, categoryIds, memo }
+      updates: { name, type, categoryIds, memo }
     });
 
     if (response && response.success) {

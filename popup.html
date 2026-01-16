@@ -598,6 +598,23 @@
       border-radius: 6px;
     }
 
+    .modal-seller-name-input {
+      width: 100%;
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      padding: 8px 10px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+
+    .modal-seller-name-input:focus {
+      outline: none;
+      border-color: #0064d2;
+    }
+
     .modal-types {
       display: flex;
       flex-wrap: wrap;
@@ -1112,7 +1129,7 @@
 
         <div class="modal-field">
           <label>セラー名</label>
-          <div class="modal-seller-name" id="editSellerName"></div>
+          <input type="text" class="modal-seller-name-input" id="editSellerName" placeholder="セラー名">
         </div>
 
         <div class="modal-field">
