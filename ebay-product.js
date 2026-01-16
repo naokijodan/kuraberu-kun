@@ -60,23 +60,75 @@
    * eBayのセラー情報を取得
    */
   function getSellerInfo() {
-    // セラー名のセレクタ
-    const sellerSelectors = [
+    // セラーカード内のストアリンクを優先的に探す（広告ではなく実際のセラー）
+    // セラーカードは x-sellercard-atf クラスを持つ要素内にある
+    const sellerCardSelectors = [
+      // セラーカード内のストアリンク
+      '.x-sellercard-atf a[href*="/str/"]',
+      'div[data-testid="x-sellercard-atf"] a[href*="/str/"]',
+      // セラーセクション内
+      '.ux-seller-section a[href*="/str/"]',
+      'a[data-testid="ux-seller-section__item--link"]'
+    ];
+
+    for (const selector of sellerCardSelectors) {
+      const storeLink = document.querySelector(selector);
+      if (storeLink) {
+        const href = storeLink.getAttribute('href') || '';
+        const strMatch = href.match(/\/str\/([^\/\?]+)/);
+        if (strMatch) {
+          const platformId = decodeURIComponent(strMatch[1]);
+          // セラー名はリンクテキストまたはplatformIdから取得
+          let name = '';
+          const nameSpan = storeLink.querySelector('span.ux-textspans--BOLD') || storeLink.querySelector('span');
+          if (nameSpan) {
+            name = nameSpan.textContent?.trim() || '';
+          }
+          if (!name) {
+            name = storeLink.textContent?.trim() || platformId;
+          }
+          const url = `https://www.ebay.com/str/${encodeURIComponent(platformId)}`;
+
+          console.log('[しらべる君 eBay商品] セラー情報取得(sellercard):', { name, platformId, url });
+          return { name, platformId, url, platform: 'ebay' };
+        }
+      }
+    }
+
+    // セラー名のセレクタ（ストアリンクが見つからない場合）
+    const sellerNameSelectors = [
       'a[data-testid="ux-seller-section__item--link"] span.ux-textspans--BOLD',
       'a.ux-seller-section__item--link span',
-      'div[data-testid="x-sellercard-atf"] a span',
-      'a[href*="/usr/"] span.ux-textspans--BOLD',
+      'div[data-testid="x-sellercard-atf"] a span.ux-textspans--BOLD',
       '.x-sellercard-atf__info__about-seller a span'
     ];
 
-    for (const selector of sellerSelectors) {
+    for (const selector of sellerNameSelectors) {
       const el = document.querySelector(selector);
       if (el) {
         const name = el.textContent?.trim() || '';
         if (name && name.length > 0) {
-          // セラーIDはセラー名と同じ（eBayの場合）
-          const platformId = name;
-          const url = `https://www.ebay.com/usr/${encodeURIComponent(name)}`;
+          // 親要素からリンクを取得してストアURLを探す
+          const parentLink = el.closest('a');
+          let url = '';
+          let platformId = name;
+
+          if (parentLink) {
+            const href = parentLink.getAttribute('href') || '';
+            if (href.includes('/str/')) {
+              const match = href.match(/\/str\/([^\/\?]+)/);
+              if (match) {
+                platformId = decodeURIComponent(match[1]);
+                url = `https://www.ebay.com/str/${encodeURIComponent(platformId)}`;
+              }
+            }
+          }
+          // ストアURLが取得できなければ名前からURLを構築
+          if (!url) {
+            // 名前をURL用に変換（スペースを削除、小文字化）
+            const urlName = name.replace(/\s+/g, '').toLowerCase();
+            url = `https://www.ebay.com/str/${encodeURIComponent(urlName)}`;
+          }
 
           console.log('[しらべる君 eBay商品] セラー情報取得:', { name, platformId, url });
           return { name, platformId, url, platform: 'ebay' };
@@ -84,18 +136,26 @@
       }
     }
 
-    // フォールバック: href から直接取得
-    const sellerLink = document.querySelector('a[href*="/usr/"]');
-    if (sellerLink) {
-      const href = sellerLink.getAttribute('href') || '';
-      const match = href.match(/\/usr\/([^\/\?]+)/);
-      if (match) {
-        const platformId = decodeURIComponent(match[1]);
-        const name = sellerLink.textContent?.trim() || platformId;
-        const url = `https://www.ebay.com/usr/${encodeURIComponent(platformId)}`;
+    // 最終フォールバック: セラーカード内の /usr/ リンクから名前を取得
+    const usrLinkSelectors = [
+      '.x-sellercard-atf a[href*="/usr/"]',
+      'div[data-testid="x-sellercard-atf"] a[href*="/usr/"]'
+    ];
 
-        console.log('[しらべる君 eBay商品] セラー情報取得(fallback):', { name, platformId, url });
-        return { name, platformId, url, platform: 'ebay' };
+    for (const selector of usrLinkSelectors) {
+      const usrLink = document.querySelector(selector);
+      if (usrLink) {
+        const href = usrLink.getAttribute('href') || '';
+        const match = href.match(/\/usr\/([^\/\?]+)/);
+        if (match) {
+          const platformId = decodeURIComponent(match[1]);
+          const name = usrLink.textContent?.trim() || platformId;
+          // /usr/ の情報から /str/ URLを構築
+          const url = `https://www.ebay.com/str/${encodeURIComponent(platformId)}`;
+
+          console.log('[しらべる君 eBay商品] セラー情報取得(usr->str):', { name, platformId, url });
+          return { name, platformId, url, platform: 'ebay' };
+        }
       }
     }
 
@@ -619,7 +679,10 @@
               <span class="kuraberu-seller-saved-badge" style="display: none; background: #4caf50; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px;">保存済み</span>
             </div>
             <div class="kuraberu-seller-info" style="padding: 8px; background: #f5f5f5; border-radius: 6px; margin-bottom: 10px;">
-              <div class="kuraberu-seller-name" style="font-weight: 600; font-size: 13px;"></div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 16px;">🇺🇸</span>
+                <input type="text" class="kuraberu-seller-name-input" placeholder="セラー名" style="flex: 1; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; font-weight: 600;">
+              </div>
             </div>
             <div style="margin-bottom: 10px;">
               <div style="font-size: 11px; color: #666; margin-bottom: 4px;">カテゴリ:</div>
@@ -798,8 +861,8 @@
       sellerSection.style.display = 'block';
       sellerPremiumPrompt.style.display = 'none';
 
-      // セラー名を表示
-      panel.querySelector('.kuraberu-seller-name').textContent = `🇺🇸 ${sellerInfo.name}`;
+      // セラー名を表示（編集可能なinputフィールド）
+      panel.querySelector('.kuraberu-seller-name-input').value = sellerInfo.name;
 
       // カテゴリ一覧を読み込み
       initSellerSectionEbay(panel, sellerInfo);
@@ -885,12 +948,15 @@
       const type = panel.querySelector('input[name="seller-type"]:checked')?.value || 'other';
       const memo = panel.querySelector('.kuraberu-seller-memo').value.trim();
 
+      // inputフィールドから編集されたセラー名を取得
+      const editedSellerName = panel.querySelector('.kuraberu-seller-name-input').value.trim() || sellerInfo.name;
+
       const result = await chrome.runtime.sendMessage({
         action: 'seller_save',
         seller: {
           platform: sellerInfo.platform,
           platformId: sellerInfo.platformId,
-          name: sellerInfo.name,
+          name: editedSellerName,
           url: sellerInfo.url,
           categoryIds: selectedCategories,
           type: type,

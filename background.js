@@ -424,17 +424,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const categories = data[SELLER_STORAGE_KEYS.CATEGORIES] || {};
         const sellers = data[SELLER_STORAGE_KEYS.SELLERS] || {};
 
-        if (!categories[request.id]) {
+        // options.jsからはcategoryId、他の場所からはidで送られる可能性があるため両方対応
+        const categoryId = request.categoryId || request.id;
+
+        if (!categories[categoryId]) {
           throw new Error('カテゴリが見つかりません');
         }
 
-        delete categories[request.id];
+        delete categories[categoryId];
 
         // セラーからこのカテゴリへの紐付けを解除
         for (const sellerId in sellers) {
           const seller = sellers[sellerId];
-          if (seller.categoryIds && seller.categoryIds.includes(request.id)) {
-            seller.categoryIds = seller.categoryIds.filter(catId => catId !== request.id);
+          if (seller.categoryIds && seller.categoryIds.includes(categoryId)) {
+            seller.categoryIds = seller.categoryIds.filter(catId => catId !== categoryId);
           }
         }
 

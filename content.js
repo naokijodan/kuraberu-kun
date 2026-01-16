@@ -52,25 +52,51 @@
         // セラー名を取得（評価数やバッジを除外）
         let name = '';
 
-        // まず最初のテキストノードまたはspan要素の内容を取得
-        const firstTextNode = Array.from(el.childNodes).find(node =>
-          node.nodeType === Node.TEXT_NODE && node.textContent.trim()
-        );
+        // 方法1: mer-text要素を探す（メルカリの新しいUI）
+        const merText = el.querySelector('mer-text');
+        if (merText) {
+          name = merText.textContent?.trim() || '';
+        }
 
-        if (firstTextNode) {
-          name = firstTextNode.textContent.trim();
-        } else {
-          // span要素内のテキストを確認
-          const spanEl = el.querySelector('span:first-child');
-          if (spanEl) {
-            name = spanEl.textContent.trim();
+        // 方法2: 数字のみでないspan要素を探す
+        if (!name || /^\d+$/.test(name)) {
+          const spans = el.querySelectorAll('span');
+          for (const span of spans) {
+            const spanText = span.textContent?.trim() || '';
+            // 数字のみ、または「本人確認済」などのバッジは除外
+            if (spanText && !/^\d+$/.test(spanText) && !spanText.includes('本人確認')) {
+              name = spanText;
+              break;
+            }
+          }
+        }
+
+        // 方法3: 直接のテキストノードを探す
+        if (!name || /^\d+$/.test(name)) {
+          const textNodes = Array.from(el.childNodes).filter(node =>
+            node.nodeType === Node.TEXT_NODE && node.textContent.trim()
+          );
+          for (const node of textNodes) {
+            const text = node.textContent.trim();
+            if (text && !/^\d+$/.test(text)) {
+              name = text;
+              break;
+            }
+          }
+        }
+
+        // 方法4: 全体のテキストからパターンを除去
+        if (!name || /^\d+$/.test(name)) {
+          const fullText = el.textContent?.trim() || '';
+          // 最初の非数字部分を取得
+          // 「セラー名 123 45 6 本人確認済」→「セラー名」
+          const match = fullText.match(/^(.+?)\s+\d/);
+          if (match) {
+            name = match[1].trim();
           } else {
-            // フォールバック: 全体のテキストから数字や特定パターンを除去
-            name = el.textContent?.trim() || '';
-            // 評価数パターン（数字 数字 数字）や「本人確認済」を除去
-            name = name.replace(/\s+\d+\s+\d+\s+\d+.*$/, '').trim();
-            name = name.replace(/\s+本人確認済.*$/, '').trim();
-            name = name.replace(/\s+\d+\s*$/, '').trim();
+            // 数字や「本人確認済」を除去
+            name = fullText.replace(/\s+\d+(\s+\d+)*\s*$/g, '').trim();
+            name = name.replace(/\s*本人確認済.*$/g, '').trim();
           }
         }
 
@@ -94,7 +120,7 @@
           }
         }
 
-        if (platformId && name) {
+        if (platformId && name && !/^\d+$/.test(name)) {
           console.log('[しらべる君] セラー情報取得:', { name, platformId, url });
           return { name, platformId, url, platform: 'mercari' };
         }
@@ -568,7 +594,10 @@
               <span class="kuraberu-seller-saved-badge" style="display: none; background: #4caf50; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px;">保存済み</span>
             </label>
             <div class="kuraberu-seller-info" style="margin-top: 8px; padding: 8px; background: #f5f5f5; border-radius: 6px;">
-              <div class="kuraberu-seller-name" style="font-weight: 600; font-size: 13px;"></div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 16px;">🇯🇵</span>
+                <input type="text" class="kuraberu-seller-name-input" placeholder="セラー名" style="flex: 1; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; font-weight: 600;">
+              </div>
             </div>
             <div style="margin-top: 10px;">
               <label style="font-size: 12px; color: #666;">カテゴリ:</label>
@@ -728,8 +757,8 @@
       sellerSection.style.display = 'block';
       sellerPremiumPrompt.style.display = 'none';
 
-      // セラー名を表示
-      panel.querySelector('.kuraberu-seller-name').textContent = `🇯🇵 ${sellerInfo.name}`;
+      // セラー名を表示（編集可能なinputフィールド）
+      panel.querySelector('.kuraberu-seller-name-input').value = sellerInfo.name;
 
       // カテゴリ一覧を読み込み
       initSellerSection(panel, sellerInfo);
@@ -815,12 +844,15 @@
       const type = panel.querySelector('input[name="seller-type"]:checked')?.value || 'other';
       const memo = panel.querySelector('.kuraberu-seller-memo').value.trim();
 
+      // inputフィールドから編集されたセラー名を取得
+      const editedSellerName = panel.querySelector('.kuraberu-seller-name-input').value.trim() || sellerInfo.name;
+
       const result = await chrome.runtime.sendMessage({
         action: 'seller_save',
         seller: {
           platform: sellerInfo.platform,
           platformId: sellerInfo.platformId,
-          name: sellerInfo.name,
+          name: editedSellerName,
           url: sellerInfo.url,
           categoryIds: selectedCategories,
           type: type,
