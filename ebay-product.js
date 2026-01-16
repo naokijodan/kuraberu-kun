@@ -11,6 +11,14 @@
   let priceCalculator = null;
   let isPremiumCached = null;
 
+  // セラータイプ定義
+  const SELLER_TYPES = {
+    supplier: { label: '仕入れ先', color: '#4caf50', icon: '🛒' },
+    rival: { label: 'ライバル', color: '#2196f3', icon: '🎯' },
+    caution: { label: '要注意', color: '#f44336', icon: '⚠️' },
+    other: { label: 'その他', color: '#9e9e9e', icon: '📌' }
+  };
+
   /**
    * プレミアム状態をチェック
    */
@@ -46,6 +54,53 @@
   function isProductPage() {
     const url = window.location.href;
     return url.includes('ebay.com/itm/');
+  }
+
+  /**
+   * eBayのセラー情報を取得
+   */
+  function getSellerInfo() {
+    // セラー名のセレクタ
+    const sellerSelectors = [
+      'a[data-testid="ux-seller-section__item--link"] span.ux-textspans--BOLD',
+      'a.ux-seller-section__item--link span',
+      'div[data-testid="x-sellercard-atf"] a span',
+      'a[href*="/usr/"] span.ux-textspans--BOLD',
+      '.x-sellercard-atf__info__about-seller a span'
+    ];
+
+    for (const selector of sellerSelectors) {
+      const el = document.querySelector(selector);
+      if (el) {
+        const name = el.textContent?.trim() || '';
+        if (name && name.length > 0) {
+          // セラーIDはセラー名と同じ（eBayの場合）
+          const platformId = name;
+          const url = `https://www.ebay.com/usr/${encodeURIComponent(name)}`;
+
+          console.log('[しらべる君 eBay商品] セラー情報取得:', { name, platformId, url });
+          return { name, platformId, url, platform: 'ebay' };
+        }
+      }
+    }
+
+    // フォールバック: href から直接取得
+    const sellerLink = document.querySelector('a[href*="/usr/"]');
+    if (sellerLink) {
+      const href = sellerLink.getAttribute('href') || '';
+      const match = href.match(/\/usr\/([^\/\?]+)/);
+      if (match) {
+        const platformId = decodeURIComponent(match[1]);
+        const name = sellerLink.textContent?.trim() || platformId;
+        const url = `https://www.ebay.com/usr/${encodeURIComponent(platformId)}`;
+
+        console.log('[しらべる君 eBay商品] セラー情報取得(fallback):', { name, platformId, url });
+        return { name, platformId, url, platform: 'ebay' };
+      }
+    }
+
+    console.log('[しらべる君 eBay商品] セラー情報取得失敗');
+    return null;
   }
 
   /**
@@ -556,6 +611,65 @@
             font-size: 12px;
             color: #666;
           "></div>
+
+          <!-- セラー保存セクション（プレミアム機能） -->
+          <div class="kuraberu-seller-section" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
+            <div style="font-size: 12px; color: #0064d2; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              ⭐ セラーを保存
+              <span class="kuraberu-seller-saved-badge" style="display: none; background: #4caf50; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px;">保存済み</span>
+            </div>
+            <div class="kuraberu-seller-info" style="padding: 8px; background: #f5f5f5; border-radius: 6px; margin-bottom: 10px;">
+              <div class="kuraberu-seller-name" style="font-weight: 600; font-size: 13px;"></div>
+            </div>
+            <div style="margin-bottom: 10px;">
+              <div style="font-size: 11px; color: #666; margin-bottom: 4px;">カテゴリ:</div>
+              <div class="kuraberu-category-list" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+              <div style="margin-top: 6px; display: flex; gap: 4px;">
+                <input type="text" class="kuraberu-new-category-input" placeholder="新規カテゴリ名" style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px;">
+                <button class="kuraberu-add-category-btn" style="padding: 6px 10px; background: #0064d2; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">+</button>
+              </div>
+            </div>
+            <div style="margin-bottom: 10px;">
+              <div style="font-size: 11px; color: #666; margin-bottom: 4px;">タイプ:</div>
+              <div class="kuraberu-type-list" style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <label style="display: flex; align-items: center; gap: 3px; cursor: pointer; font-size: 10px; padding: 4px 6px; background: #e8f5e9; border-radius: 4px; border: 1px solid #4caf50;">
+                  <input type="radio" name="seller-type" value="supplier" checked style="margin: 0; width: 12px; height: 12px;">
+                  🛒 仕入れ先
+                </label>
+                <label style="display: flex; align-items: center; gap: 3px; cursor: pointer; font-size: 10px; padding: 4px 6px; background: #e3f2fd; border-radius: 4px; border: 1px solid #2196f3;">
+                  <input type="radio" name="seller-type" value="rival" style="margin: 0; width: 12px; height: 12px;">
+                  🎯 ライバル
+                </label>
+                <label style="display: flex; align-items: center; gap: 3px; cursor: pointer; font-size: 10px; padding: 4px 6px; background: #ffebee; border-radius: 4px; border: 1px solid #f44336;">
+                  <input type="radio" name="seller-type" value="caution" style="margin: 0; width: 12px; height: 12px;">
+                  ⚠️ 要注意
+                </label>
+                <label style="display: flex; align-items: center; gap: 3px; cursor: pointer; font-size: 10px; padding: 4px 6px; background: #fafafa; border-radius: 4px; border: 1px solid #9e9e9e;">
+                  <input type="radio" name="seller-type" value="other" style="margin: 0; width: 12px; height: 12px;">
+                  📌 その他
+                </label>
+              </div>
+            </div>
+            <div style="margin-bottom: 10px;">
+              <div style="font-size: 11px; color: #666; margin-bottom: 4px;">メモ:</div>
+              <input type="text" class="kuraberu-seller-memo" placeholder="メモ（任意）" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px; box-sizing: border-box;">
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button class="kuraberu-save-seller-btn" style="flex: 1; padding: 8px; background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">⭐ 保存</button>
+              <button class="kuraberu-view-sellers-btn" style="padding: 8px 12px; background: #f5f5f5; color: #333; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer;">📋 一覧</button>
+            </div>
+            <div class="kuraberu-seller-message" style="margin-top: 8px; font-size: 11px;"></div>
+          </div>
+
+          <!-- プレミアム機能案内（セラー保存） -->
+          <div class="kuraberu-seller-premium-prompt" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
+            <div style="background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%); padding: 10px; border-radius: 8px; border: 1px solid #bdbdbd;">
+              <div style="font-size: 12px; font-weight: 600; color: #333; margin-bottom: 6px;">🔒 セラー保存（プレミアム機能）</div>
+              <div style="font-size: 10px; color: #666; line-height: 1.5;">
+                気になるセラーを保存して、カテゴリ別に管理できます。
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -671,6 +785,195 @@
         if (detailProfit) detailProfit.textContent = `¥${result.targetProfitJPY.toLocaleString()}`;
       });
     }
+
+    // ========================================
+    // セラー保存機能（プレミアム機能）
+    // ========================================
+    const sellerSection = panel.querySelector('.kuraberu-seller-section');
+    const sellerPremiumPrompt = panel.querySelector('.kuraberu-seller-premium-prompt');
+    const sellerInfo = getSellerInfo();
+
+    if (isPremium && sellerInfo) {
+      // プレミアムかつセラー情報が取得できた場合
+      sellerSection.style.display = 'block';
+      sellerPremiumPrompt.style.display = 'none';
+
+      // セラー名を表示
+      panel.querySelector('.kuraberu-seller-name').textContent = `🇺🇸 ${sellerInfo.name}`;
+
+      // カテゴリ一覧を読み込み
+      initSellerSectionEbay(panel, sellerInfo);
+    } else if (!isPremium && sellerInfo) {
+      // 非プレミアムの場合はプレミアム案内を表示
+      sellerSection.style.display = 'none';
+      sellerPremiumPrompt.style.display = 'block';
+    }
+  }
+
+  /**
+   * セラー保存セクションを初期化（eBay）
+   */
+  async function initSellerSectionEbay(panel, sellerInfo) {
+    const categoryListEl = panel.querySelector('.kuraberu-category-list');
+    const savedBadge = panel.querySelector('.kuraberu-seller-saved-badge');
+    const memoInput = panel.querySelector('.kuraberu-seller-memo');
+
+    // 既に保存済みかチェック
+    const checkResult = await chrome.runtime.sendMessage({
+      action: 'seller_checkSaved',
+      platform: sellerInfo.platform,
+      platformId: sellerInfo.platformId
+    });
+
+    let existingSeller = null;
+    if (checkResult.success && checkResult.saved) {
+      existingSeller = checkResult.seller;
+      savedBadge.style.display = 'inline';
+
+      // 既存のメモを表示
+      if (existingSeller.memo) {
+        memoInput.value = existingSeller.memo;
+      }
+
+      // 既存のタイプを選択
+      if (existingSeller.type) {
+        const typeRadio = panel.querySelector(`input[name="seller-type"][value="${existingSeller.type}"]`);
+        if (typeRadio) typeRadio.checked = true;
+      }
+    }
+
+    // カテゴリ一覧を取得して表示
+    await loadCategoriesEbay(panel, existingSeller);
+
+    // 新規カテゴリ追加ボタン
+    panel.querySelector('.kuraberu-add-category-btn').addEventListener('click', async () => {
+      const input = panel.querySelector('.kuraberu-new-category-input');
+      const name = input.value.trim();
+      if (!name) return;
+
+      const result = await chrome.runtime.sendMessage({
+        action: 'seller_addCategory',
+        name: name
+      });
+
+      if (result.success) {
+        input.value = '';
+        await loadCategoriesEbay(panel, existingSeller, result.id);
+        showSellerMessageEbay(panel, '✅ カテゴリを追加しました', 'success');
+      } else {
+        showSellerMessageEbay(panel, `❌ ${result.error}`, 'error');
+      }
+    });
+
+    // Enterキーでカテゴリ追加
+    panel.querySelector('.kuraberu-new-category-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        panel.querySelector('.kuraberu-add-category-btn').click();
+      }
+    });
+
+    // セラー保存ボタン
+    panel.querySelector('.kuraberu-save-seller-btn').addEventListener('click', async () => {
+      const selectedCategories = Array.from(panel.querySelectorAll('.kuraberu-category-checkbox:checked'))
+        .map(cb => cb.value);
+
+      if (selectedCategories.length === 0) {
+        showSellerMessageEbay(panel, '⚠️ カテゴリを選択してください', 'warning');
+        return;
+      }
+
+      const type = panel.querySelector('input[name="seller-type"]:checked')?.value || 'other';
+      const memo = panel.querySelector('.kuraberu-seller-memo').value.trim();
+
+      const result = await chrome.runtime.sendMessage({
+        action: 'seller_save',
+        seller: {
+          platform: sellerInfo.platform,
+          platformId: sellerInfo.platformId,
+          name: sellerInfo.name,
+          url: sellerInfo.url,
+          categoryIds: selectedCategories,
+          type: type,
+          memo: memo
+        }
+      });
+
+      if (result.success) {
+        savedBadge.style.display = 'inline';
+        showSellerMessageEbay(panel, '✅ セラーを保存しました', 'success');
+      } else {
+        showSellerMessageEbay(panel, `❌ ${result.error}`, 'error');
+      }
+    });
+
+    // セラー一覧ボタン
+    panel.querySelector('.kuraberu-view-sellers-btn').addEventListener('click', () => {
+      const selectedCategory = panel.querySelector('.kuraberu-category-checkbox:checked');
+      if (selectedCategory) {
+        chrome.storage.local.set({ shiraberu_view_category_id: selectedCategory.value });
+      }
+      showSellerMessageEbay(panel, 'ツールバーのしらべる君アイコンをクリックして「セラー管理」タブを開いてください', 'info');
+    });
+  }
+
+  /**
+   * カテゴリ一覧を読み込んで表示（eBay）
+   */
+  async function loadCategoriesEbay(panel, existingSeller = null, selectNewId = null) {
+    const categoryListEl = panel.querySelector('.kuraberu-category-list');
+
+    const result = await chrome.runtime.sendMessage({ action: 'seller_getCategories' });
+    if (!result.success) {
+      categoryListEl.innerHTML = '<span style="color: #999; font-size: 10px;">カテゴリを読み込めませんでした</span>';
+      return;
+    }
+
+    const categories = result.categories || [];
+
+    const lastCatResult = await chrome.runtime.sendMessage({ action: 'seller_getLastCategory' });
+    const lastCategoryId = lastCatResult.success ? lastCatResult.categoryId : null;
+
+    if (categories.length === 0) {
+      categoryListEl.innerHTML = '<span style="color: #999; font-size: 10px;">カテゴリがありません。新規作成してください</span>';
+      return;
+    }
+
+    categoryListEl.innerHTML = categories.map(cat => {
+      const isExisting = existingSeller?.categoryIds?.includes(cat.id);
+      const isNewlyAdded = cat.id === selectNewId;
+      const isLastUsed = cat.id === lastCategoryId && !existingSeller;
+      const checked = isExisting || isNewlyAdded || isLastUsed ? 'checked' : '';
+
+      return `
+        <label style="display: flex; align-items: center; gap: 3px; cursor: pointer; font-size: 10px; padding: 4px 6px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+          <input type="checkbox" class="kuraberu-category-checkbox" value="${cat.id}" ${checked} style="margin: 0; width: 12px; height: 12px;">
+          ${escapeHtml(cat.name)}
+        </label>
+      `;
+    }).join('');
+  }
+
+  /**
+   * セラーセクションのメッセージを表示（eBay）
+   */
+  function showSellerMessageEbay(panel, text, type) {
+    const msgEl = panel.querySelector('.kuraberu-seller-message');
+    if (!msgEl) return;
+
+    msgEl.textContent = text;
+    if (type === 'success') {
+      msgEl.style.color = '#4caf50';
+    } else if (type === 'error') {
+      msgEl.style.color = '#f44336';
+    } else if (type === 'warning') {
+      msgEl.style.color = '#ff9800';
+    } else {
+      msgEl.style.color = '#666';
+    }
+
+    setTimeout(() => {
+      msgEl.textContent = '';
+    }, 4000);
   }
 
   /**

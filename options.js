@@ -124,12 +124,36 @@ const SHIPPING_RATE_TABLE = {
 };
 
 
+// セラータイプ定義（seller-manager.jsと同期）
+const SELLER_TYPES = {
+  supplier: { label: '仕入れ先', color: '#4caf50', icon: '🛒' },
+  rival: { label: 'ライバル', color: '#2196f3', icon: '🎯' },
+  caution: { label: '要注意', color: '#f44336', icon: '⚠️' },
+  other: { label: 'その他', color: '#9e9e9e', icon: '📌' }
+};
+
+// プラットフォームアイコン
+const PLATFORM_ICONS = {
+  mercari: '🏪',
+  ebay: '🌐'
+};
+
+// 現在のフィルター状態
+let currentFilters = {
+  categoryId: '',
+  type: ''
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('しらべる君: 設定画面の初期化開始');
   try {
     // イベントリスナーを設定（最初に設定）
     console.log('イベントリスナー設定中...');
     setupEventListeners();
+
+    // タブ切り替えイベントを設定
+    console.log('タブイベント設定中...');
+    setupTabEventListeners();
 
     // 保存済みの設定を読み込み
     console.log('設定読み込み中...');
@@ -142,6 +166,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 容積重量計算のイベントを設定
     console.log('容積重量リスナー設定中...');
     setupVolumetricWeightListeners();
+
+    // セラー管理イベントを設定
+    console.log('セラー管理イベント設定中...');
+    setupSellerEventListeners();
 
     console.log('しらべる君: 設定画面の初期化完了');
   } catch (error) {
@@ -767,3 +795,423 @@ function showToast(message, type = 'info') {
 window.toggleShippingMode = toggleShippingMode;
 window.refreshExchangeRate = refreshExchangeRate;
 window.toggleSection = toggleSection;
+
+// ========================================
+// タブ切り替え機能
+// ========================================
+
+/**
+ * タブ切り替えイベントリスナーを設定
+ */
+function setupTabEventListeners() {
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabName = btn.dataset.tab;
+      switchTab(tabName);
+    });
+  });
+}
+
+/**
+ * タブを切り替え
+ */
+function switchTab(tabName) {
+  // ボタンのアクティブ状態を切り替え
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabName);
+  });
+
+  // タブコンテンツの表示/非表示
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.toggle('active', content.id === `tab-${tabName}`);
+  });
+
+  // セラータブに切り替えた場合、データを読み込む
+  if (tabName === 'sellers') {
+    checkPremiumAndLoadSellers();
+  }
+}
+
+// ========================================
+// セラー管理機能
+// ========================================
+
+/**
+ * セラー管理イベントリスナーを設定
+ */
+function setupSellerEventListeners() {
+  // カテゴリフィルター
+  const categoryFilter = document.getElementById('sellerCategoryFilter');
+  if (categoryFilter) {
+    categoryFilter.addEventListener('change', (e) => {
+      currentFilters.categoryId = e.target.value;
+      loadSellerList();
+    });
+  }
+
+  // タイプフィルター
+  document.querySelectorAll('.seller-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.seller-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilters.type = btn.dataset.type;
+      loadSellerList();
+    });
+  });
+
+  // カテゴリ追加ボタン
+  const addCategoryBtn = document.getElementById('addCategoryBtn');
+  if (addCategoryBtn) {
+    addCategoryBtn.addEventListener('click', addNewCategory);
+  }
+
+  // カテゴリ管理ボタン
+  const manageCategoriesBtn = document.getElementById('manageCategoriesBtn');
+  if (manageCategoriesBtn) {
+    manageCategoriesBtn.addEventListener('click', openCategoryManager);
+  }
+
+  // JSONエクスポートボタン
+  const exportJsonBtn = document.getElementById('exportJsonBtn');
+  if (exportJsonBtn) {
+    exportJsonBtn.addEventListener('click', exportAsJson);
+  }
+
+  // CSVエクスポートボタン
+  const exportCsvBtn = document.getElementById('exportCsvBtn');
+  if (exportCsvBtn) {
+    exportCsvBtn.addEventListener('click', exportAsCsv);
+  }
+}
+
+/**
+ * プレミアム状態を確認してセラーを読み込む
+ */
+async function checkPremiumAndLoadSellers() {
+  const localResult = await chrome.storage.local.get(['shiraberu_secret_code']);
+  const secretCode = localResult.shiraberu_secret_code || '';
+  const isPremium = VALID_SECRET_CODES.includes(secretCode.toUpperCase());
+
+  const premiumRequired = document.getElementById('sellerPremiumRequired');
+  const sellerManagement = document.getElementById('sellerManagement');
+
+  if (isPremium) {
+    premiumRequired.classList.add('hidden');
+    sellerManagement.classList.remove('hidden');
+    await loadSellerStats();
+    await loadCategoryOptions();
+    await loadSellerList();
+  } else {
+    premiumRequired.classList.remove('hidden');
+    sellerManagement.classList.add('hidden');
+  }
+}
+
+/**
+ * セラー統計を読み込む
+ */
+async function loadSellerStats() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'seller_getStats' });
+    if (response && response.success) {
+      const stats = response.stats;
+      document.getElementById('statTotalSellers').textContent = stats.totalSellers;
+      document.getElementById('statMercari').textContent = stats.byPlatform.mercari;
+      document.getElementById('statEbay').textContent = stats.byPlatform.ebay;
+      document.getElementById('statCategories').textContent = stats.totalCategories;
+    }
+  } catch (error) {
+    console.error('統計読み込みエラー:', error);
+  }
+}
+
+/**
+ * カテゴリ選択肢を読み込む
+ */
+async function loadCategoryOptions() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'seller_getCategories' });
+    if (response && response.success) {
+      const select = document.getElementById('sellerCategoryFilter');
+      // 既存のオプションをクリア（最初の「すべて」以外）
+      while (select.options.length > 1) {
+        select.remove(1);
+      }
+      // カテゴリを追加
+      response.categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.id;
+        option.textContent = cat.name;
+        select.appendChild(option);
+      });
+    }
+  } catch (error) {
+    console.error('カテゴリ読み込みエラー:', error);
+  }
+}
+
+/**
+ * セラーリストを読み込む
+ */
+async function loadSellerList() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'seller_getSellers',
+      categoryId: currentFilters.categoryId,
+      type: currentFilters.type
+    });
+
+    const listContainer = document.getElementById('sellerList');
+
+    if (!response || !response.success || response.sellers.length === 0) {
+      listContainer.innerHTML = `
+        <div class="seller-empty">
+          <p>まだセラーが保存されていません</p>
+          <p style="margin-top: 8px; font-size: 11px;">商品ページでセラーを保存すると、ここに表示されます</p>
+        </div>
+      `;
+      return;
+    }
+
+    // カテゴリ情報を取得
+    const catResponse = await chrome.runtime.sendMessage({ action: 'seller_getCategories' });
+    const categories = catResponse.success ? catResponse.categories : [];
+    const categoryMap = {};
+    categories.forEach(cat => categoryMap[cat.id] = cat.name);
+
+    let html = '';
+    response.sellers.forEach(seller => {
+      const typeInfo = SELLER_TYPES[seller.type] || SELLER_TYPES.other;
+      const platformIcon = PLATFORM_ICONS[seller.platform] || '📦';
+      const categoryNames = (seller.categoryIds || [])
+        .map(id => categoryMap[id])
+        .filter(name => name)
+        .join(', ');
+
+      html += `
+        <div class="seller-item" data-seller-id="${seller.id}">
+          <div class="seller-item-header">
+            <span class="seller-type-icon" title="${typeInfo.label}">${typeInfo.icon}</span>
+            <span class="seller-platform-icon" title="${seller.platform}">${platformIcon}</span>
+            <span class="seller-name">${escapeHtml(seller.name)}</span>
+          </div>
+          ${seller.memo ? `<div class="seller-memo">${escapeHtml(seller.memo)}</div>` : ''}
+          ${categoryNames ? `<div class="seller-memo">📁 ${escapeHtml(categoryNames)}</div>` : ''}
+          <div class="seller-actions">
+            <button class="seller-action-btn" onclick="openSellerPage('${escapeHtml(seller.url)}')">🔗 開く</button>
+            <button class="seller-action-btn" onclick="editSeller('${seller.id}')">✏️ 編集</button>
+            <button class="seller-action-btn delete" onclick="deleteSeller('${seller.id}')">🗑️ 削除</button>
+          </div>
+        </div>
+      `;
+    });
+
+    listContainer.innerHTML = html;
+  } catch (error) {
+    console.error('セラーリスト読み込みエラー:', error);
+  }
+}
+
+/**
+ * HTMLエスケープ
+ */
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>"']/g, (match) => {
+    const escapes = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return escapes[match];
+  });
+}
+
+/**
+ * セラーページを開く
+ */
+function openSellerPage(url) {
+  chrome.tabs.create({ url: url });
+}
+
+/**
+ * セラーを編集
+ */
+async function editSeller(sellerId) {
+  const newMemo = prompt('メモを編集してください:');
+  if (newMemo === null) return; // キャンセル
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'seller_update',
+      sellerId: sellerId,
+      updates: { memo: newMemo }
+    });
+
+    if (response && response.success) {
+      showToast('セラー情報を更新しました', 'success');
+      await loadSellerList();
+    } else {
+      showToast('更新に失敗しました', 'error');
+    }
+  } catch (error) {
+    console.error('セラー更新エラー:', error);
+    showToast('更新中にエラーが発生しました', 'error');
+  }
+}
+
+/**
+ * セラーを削除
+ */
+async function deleteSeller(sellerId) {
+  if (!confirm('このセラーを削除しますか？')) return;
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'seller_delete',
+      sellerId: sellerId
+    });
+
+    if (response && response.success) {
+      showToast('セラーを削除しました', 'success');
+      await loadSellerStats();
+      await loadSellerList();
+    } else {
+      showToast('削除に失敗しました', 'error');
+    }
+  } catch (error) {
+    console.error('セラー削除エラー:', error);
+    showToast('削除中にエラーが発生しました', 'error');
+  }
+}
+
+/**
+ * 新しいカテゴリを追加
+ */
+async function addNewCategory() {
+  const name = prompt('新しいカテゴリ名を入力してください:');
+  if (!name || !name.trim()) return;
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'seller_addCategory',
+      name: name.trim()
+    });
+
+    if (response && response.success) {
+      showToast(`カテゴリ「${name}」を追加しました`, 'success');
+      await loadSellerStats();
+      await loadCategoryOptions();
+    } else {
+      showToast('カテゴリの追加に失敗しました', 'error');
+    }
+  } catch (error) {
+    console.error('カテゴリ追加エラー:', error);
+    showToast('追加中にエラーが発生しました', 'error');
+  }
+}
+
+/**
+ * カテゴリ管理画面を開く（簡易版：アラートで一覧表示）
+ */
+async function openCategoryManager() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'seller_getCategories' });
+    if (!response || !response.success) {
+      showToast('カテゴリの取得に失敗しました', 'error');
+      return;
+    }
+
+    if (response.categories.length === 0) {
+      alert('カテゴリがまだありません。\n「➕」ボタンで追加してください。');
+      return;
+    }
+
+    let message = '📂 カテゴリ一覧\n\n';
+    response.categories.forEach((cat, index) => {
+      message += `${index + 1}. ${cat.name}\n`;
+    });
+    message += '\n削除したいカテゴリの番号を入力してください\n（キャンセルする場合は空欄のままOK）';
+
+    const input = prompt(message);
+    if (!input || !input.trim()) return;
+
+    const index = parseInt(input) - 1;
+    if (isNaN(index) || index < 0 || index >= response.categories.length) {
+      alert('無効な番号です');
+      return;
+    }
+
+    const categoryToDelete = response.categories[index];
+    if (!confirm(`カテゴリ「${categoryToDelete.name}」を削除しますか？\n（セラーは削除されません）`)) return;
+
+    const deleteResponse = await chrome.runtime.sendMessage({
+      action: 'seller_deleteCategory',
+      categoryId: categoryToDelete.id
+    });
+
+    if (deleteResponse && deleteResponse.success) {
+      showToast(`カテゴリ「${categoryToDelete.name}」を削除しました`, 'success');
+      await loadSellerStats();
+      await loadCategoryOptions();
+      await loadSellerList();
+    } else {
+      showToast('削除に失敗しました', 'error');
+    }
+  } catch (error) {
+    console.error('カテゴリ管理エラー:', error);
+    showToast('エラーが発生しました', 'error');
+  }
+}
+
+/**
+ * JSONエクスポート
+ */
+async function exportAsJson() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'seller_export', format: 'json' });
+    if (response && response.success) {
+      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `shiraberu-sellers-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('JSONファイルをダウンロードしました', 'success');
+    } else {
+      showToast('エクスポートに失敗しました', 'error');
+    }
+  } catch (error) {
+    console.error('JSONエクスポートエラー:', error);
+    showToast('エクスポート中にエラーが発生しました', 'error');
+  }
+}
+
+/**
+ * CSVエクスポート
+ */
+async function exportAsCsv() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'seller_export', format: 'csv' });
+    if (response && response.success) {
+      // BOM付きUTF-8でExcelでの文字化け防止
+      const bom = '\uFEFF';
+      const blob = new Blob([bom + response.data], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `shiraberu-sellers-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('CSVファイルをダウンロードしました', 'success');
+    } else {
+      showToast('エクスポートに失敗しました', 'error');
+    }
+  } catch (error) {
+    console.error('CSVエクスポートエラー:', error);
+    showToast('エクスポート中にエラーが発生しました', 'error');
+  }
+}
+
+// セラー管理関数をグローバルに公開
+window.openSellerPage = openSellerPage;
+window.editSeller = editSeller;
+window.deleteSeller = deleteSeller;

@@ -343,6 +343,178 @@
       font-size: 10px;
       color: #888;
     }
+
+    /* タブナビゲーション */
+    .tab-nav {
+      display: flex;
+      background: #f5f5f5;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px 8px;
+      border: none;
+      background: transparent;
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+      background: #e0e0e0;
+    }
+
+    .tab-btn.active {
+      color: #0064d2;
+      background: #fff;
+      border-bottom: 2px solid #0064d2;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* セラー管理タブ */
+    .seller-tab {
+      padding: 12px;
+    }
+
+    .seller-category-select {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .seller-category-select select {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .seller-filter {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .seller-filter-btn {
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fff;
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    .seller-filter-btn.active {
+      background: #0064d2;
+      color: white;
+      border-color: #0064d2;
+    }
+
+    .seller-list {
+      max-height: 350px;
+      overflow-y: auto;
+    }
+
+    .seller-item {
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+
+    .seller-item-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .seller-type-icon {
+      font-size: 14px;
+    }
+
+    .seller-platform-icon {
+      font-size: 12px;
+    }
+
+    .seller-name {
+      font-weight: 600;
+      font-size: 13px;
+      flex: 1;
+    }
+
+    .seller-memo {
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 6px;
+    }
+
+    .seller-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .seller-action-btn {
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fff;
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    .seller-action-btn:hover {
+      background: #e0e0e0;
+    }
+
+    .seller-action-btn.delete:hover {
+      background: #ffebee;
+      border-color: #f44336;
+      color: #f44336;
+    }
+
+    .seller-empty {
+      text-align: center;
+      padding: 30px;
+      color: #999;
+      font-size: 12px;
+    }
+
+    .seller-stats {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 8px;
+      background: #e3f2fd;
+      border-radius: 6px;
+    }
+
+    .seller-stat {
+      flex: 1;
+      text-align: center;
+    }
+
+    .seller-stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #0064d2;
+    }
+
+    .seller-stat-label {
+      font-size: 10px;
+      color: #666;
+    }
   </style>
 </head>
 <body>
@@ -350,6 +522,14 @@
     <h1>🔍 しらべる君 設定</h1>
   </div>
 
+  <!-- タブナビゲーション -->
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="settings">⚙️ 設定</button>
+    <button class="tab-btn" data-tab="sellers">⭐ セラー管理</button>
+  </div>
+
+  <!-- 設定タブ -->
+  <div class="tab-content active" id="tab-settings">
   <div class="content">
     <!-- プレミアム機能解放 Section -->
     <div class="section" id="section-premium">
@@ -630,9 +810,75 @@
     </div>
     <div id="saveStatus"></div>
   </div>
+  </div><!-- /tab-settings -->
+
+  <!-- セラー管理タブ -->
+  <div class="tab-content" id="tab-sellers">
+    <div class="seller-tab">
+      <!-- プレミアム未解放時のメッセージ -->
+      <div id="sellerPremiumRequired" class="seller-empty">
+        <p>🔒 プレミアム機能です</p>
+        <p style="margin-top: 8px; font-size: 11px;">「設定」タブでシークレットコードを入力してください</p>
+      </div>
+
+      <!-- セラー管理本体（プレミアム解放時のみ表示） -->
+      <div id="sellerManagement" class="hidden">
+        <!-- 統計情報 -->
+        <div class="seller-stats">
+          <div class="seller-stat">
+            <div class="seller-stat-value" id="statTotalSellers">0</div>
+            <div class="seller-stat-label">セラー数</div>
+          </div>
+          <div class="seller-stat">
+            <div class="seller-stat-value" id="statMercari">0</div>
+            <div class="seller-stat-label">メルカリ</div>
+          </div>
+          <div class="seller-stat">
+            <div class="seller-stat-value" id="statEbay">0</div>
+            <div class="seller-stat-label">eBay</div>
+          </div>
+          <div class="seller-stat">
+            <div class="seller-stat-value" id="statCategories">0</div>
+            <div class="seller-stat-label">カテゴリ</div>
+          </div>
+        </div>
+
+        <!-- カテゴリ選択 -->
+        <div class="seller-category-select">
+          <select id="sellerCategoryFilter">
+            <option value="">すべてのセラー</option>
+          </select>
+          <button class="btn-refresh" id="addCategoryBtn" title="カテゴリ追加">➕</button>
+          <button class="btn-refresh" id="manageCategoriesBtn" title="カテゴリ管理">📂</button>
+        </div>
+
+        <!-- タイプフィルター -->
+        <div class="seller-filter">
+          <button class="seller-filter-btn active" data-type="">すべて</button>
+          <button class="seller-filter-btn" data-type="supplier">🛒 仕入れ先</button>
+          <button class="seller-filter-btn" data-type="rival">🎯 ライバル</button>
+          <button class="seller-filter-btn" data-type="caution">⚠️ 要注意</button>
+        </div>
+
+        <!-- セラーリスト -->
+        <div class="seller-list" id="sellerList">
+          <div class="seller-empty">
+            <p>まだセラーが保存されていません</p>
+            <p style="margin-top: 8px; font-size: 11px;">商品ページでセラーを保存すると、ここに表示されます</p>
+          </div>
+        </div>
+
+        <!-- エクスポートボタン -->
+        <div class="btn-row" style="margin-top: 12px;">
+          <button class="btn btn-secondary" id="exportJsonBtn">📥 JSON出力</button>
+          <button class="btn btn-secondary" id="exportCsvBtn">📊 CSV出力</button>
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab-sellers -->
 
   <div class="footer">
-    しらべる君 v1.3.0 | メルカリ⇔eBay双方向リサーチ
+    しらべる君 v1.4.0 | メルカリ⇔eBay双方向リサーチ
   </div>
 
   <div class="toast" id="toast"></div>
