@@ -593,10 +593,10 @@
               ⭐ セラーを保存
               <span class="kuraberu-seller-saved-badge" style="display: none; background: #4caf50; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px;">保存済み</span>
             </label>
-            <div class="kuraberu-seller-info" style="margin-top: 8px; padding: 8px; background: #f5f5f5; border-radius: 6px;">
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <span style="font-size: 16px;">🇯🇵</span>
-                <input type="text" class="kuraberu-seller-name-input" placeholder="セラー名" style="flex: 1; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; font-weight: 600;">
+            <div class="kuraberu-seller-info" style="margin-top: 8px;">
+              <div style="display: flex; align-items: center; gap: 6px; width: 100%;">
+                <span style="font-size: 16px; flex-shrink: 0;">🇯🇵</span>
+                <input type="text" class="kuraberu-seller-name-input" placeholder="セラー名" style="flex: 1; min-width: 0; padding: 8px 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px; font-weight: 600; box-sizing: border-box;">
               </div>
             </div>
             <div style="margin-top: 10px;">
