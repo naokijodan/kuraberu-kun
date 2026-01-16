@@ -883,6 +883,32 @@ function setupSellerEventListeners() {
   if (exportCsvBtn) {
     exportCsvBtn.addEventListener('click', exportAsCsv);
   }
+
+  // モーダル関連
+  const closeEditModalBtn = document.getElementById('closeEditModal');
+  if (closeEditModalBtn) {
+    closeEditModalBtn.addEventListener('click', closeEditModal);
+  }
+
+  const cancelEditModalBtn = document.getElementById('cancelEditModal');
+  if (cancelEditModalBtn) {
+    cancelEditModalBtn.addEventListener('click', closeEditModal);
+  }
+
+  const saveEditModalBtn = document.getElementById('saveEditModal');
+  if (saveEditModalBtn) {
+    saveEditModalBtn.addEventListener('click', saveEditSeller);
+  }
+
+  // モーダル外クリックで閉じる
+  const editSellerModal = document.getElementById('editSellerModal');
+  if (editSellerModal) {
+    editSellerModal.addEventListener('click', (e) => {
+      if (e.target === editSellerModal) {
+        closeEditModal();
+      }
+    });
+  }
 }
 
 /**
@@ -1050,21 +1076,107 @@ function openSellerPage(url) {
 }
 
 /**
- * セラーを編集
+ * セラーを編集（モーダル表示）
  */
 async function editSeller(sellerId) {
-  const newMemo = prompt('メモを編集してください:');
-  if (newMemo === null) return; // キャンセル
+  try {
+    // セラー情報を取得
+    const sellersResponse = await chrome.runtime.sendMessage({
+      action: 'seller_getSellers'
+    });
+
+    if (!sellersResponse || !sellersResponse.success) {
+      showToast('セラー情報の取得に失敗しました', 'error');
+      return;
+    }
+
+    const seller = sellersResponse.sellers.find(s => s.id === sellerId);
+    if (!seller) {
+      showToast('セラーが見つかりません', 'error');
+      return;
+    }
+
+    // カテゴリ一覧を取得
+    const catResponse = await chrome.runtime.sendMessage({ action: 'seller_getCategories' });
+    const categories = catResponse.success ? catResponse.categories : [];
+
+    // モーダルにデータを設定
+    document.getElementById('editSellerId').value = sellerId;
+    document.getElementById('editSellerName').textContent = seller.name;
+    document.getElementById('editSellerMemo').value = seller.memo || '';
+
+    // タイプボタンを設定
+    document.querySelectorAll('#editSellerTypes .modal-type-btn').forEach(btn => {
+      btn.classList.toggle('selected', btn.dataset.type === seller.type);
+    });
+
+    // カテゴリボタンを生成
+    const categoriesContainer = document.getElementById('editSellerCategories');
+    if (categories.length === 0) {
+      categoriesContainer.innerHTML = '<span style="color: #999; font-size: 11px;">カテゴリがありません</span>';
+    } else {
+      categoriesContainer.innerHTML = categories.map(cat => `
+        <button class="modal-category-btn ${(seller.categoryIds || []).includes(cat.id) ? 'selected' : ''}"
+                data-category-id="${cat.id}">${cat.name}</button>
+      `).join('');
+
+      // カテゴリボタンのイベント
+      categoriesContainer.querySelectorAll('.modal-category-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          btn.classList.toggle('selected');
+        });
+      });
+    }
+
+    // タイプボタンのイベント
+    document.querySelectorAll('#editSellerTypes .modal-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#editSellerTypes .modal-type-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+    });
+
+    // モーダルを表示
+    document.getElementById('editSellerModal').classList.remove('hidden');
+
+  } catch (error) {
+    console.error('セラー編集エラー:', error);
+    showToast('エラーが発生しました', 'error');
+  }
+}
+
+/**
+ * 編集モーダルを閉じる
+ */
+function closeEditModal() {
+  document.getElementById('editSellerModal').classList.add('hidden');
+}
+
+/**
+ * 編集を保存
+ */
+async function saveEditSeller() {
+  const sellerId = document.getElementById('editSellerId').value;
+  const memo = document.getElementById('editSellerMemo').value;
+
+  // 選択されたタイプを取得
+  const selectedTypeBtn = document.querySelector('#editSellerTypes .modal-type-btn.selected');
+  const type = selectedTypeBtn ? selectedTypeBtn.dataset.type : 'other';
+
+  // 選択されたカテゴリを取得
+  const categoryIds = Array.from(document.querySelectorAll('#editSellerCategories .modal-category-btn.selected'))
+    .map(btn => btn.dataset.categoryId);
 
   try {
     const response = await chrome.runtime.sendMessage({
       action: 'seller_update',
       sellerId: sellerId,
-      updates: { memo: newMemo }
+      updates: { type, categoryIds, memo }
     });
 
     if (response && response.success) {
       showToast('セラー情報を更新しました', 'success');
+      closeEditModal();
       await loadSellerList();
     } else {
       showToast('更新に失敗しました', 'error');
