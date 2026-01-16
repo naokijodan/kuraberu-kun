@@ -48,7 +48,31 @@
       const el = document.querySelector(selector);
       if (el) {
         const href = el.getAttribute('href') || '';
-        const name = el.textContent?.trim() || '';
+
+        // セラー名を取得（評価数やバッジを除外）
+        let name = '';
+
+        // まず最初のテキストノードまたはspan要素の内容を取得
+        const firstTextNode = Array.from(el.childNodes).find(node =>
+          node.nodeType === Node.TEXT_NODE && node.textContent.trim()
+        );
+
+        if (firstTextNode) {
+          name = firstTextNode.textContent.trim();
+        } else {
+          // span要素内のテキストを確認
+          const spanEl = el.querySelector('span:first-child');
+          if (spanEl) {
+            name = spanEl.textContent.trim();
+          } else {
+            // フォールバック: 全体のテキストから数字や特定パターンを除去
+            name = el.textContent?.trim() || '';
+            // 評価数パターン（数字 数字 数字）や「本人確認済」を除去
+            name = name.replace(/\s+\d+\s+\d+\s+\d+.*$/, '').trim();
+            name = name.replace(/\s+本人確認済.*$/, '').trim();
+            name = name.replace(/\s+\d+\s*$/, '').trim();
+          }
+        }
 
         // ユーザーIDを抽出
         let platformId = '';
