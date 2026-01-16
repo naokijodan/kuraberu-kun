@@ -909,6 +909,12 @@ function setupSellerEventListeners() {
       }
     });
   }
+
+  // モーダル内カテゴリ追加ボタン
+  const modalAddCategoryBtn = document.getElementById('modalAddCategoryBtn');
+  if (modalAddCategoryBtn) {
+    modalAddCategoryBtn.addEventListener('click', addCategoryInModal);
+  }
 }
 
 /**
@@ -1075,6 +1081,9 @@ function openSellerPage(url) {
   chrome.tabs.create({ url: url });
 }
 
+// 現在編集中のセラーの選択カテゴリを保持
+let currentEditingSellerCategoryIds = [];
+
 /**
  * セラーを編集（モーダル表示）
  */
@@ -1096,9 +1105,8 @@ async function editSeller(sellerId) {
       return;
     }
 
-    // カテゴリ一覧を取得
-    const catResponse = await chrome.runtime.sendMessage({ action: 'seller_getCategories' });
-    const categories = catResponse.success ? catResponse.categories : [];
+    // 現在のカテゴリIDを保持
+    currentEditingSellerCategoryIds = [...(seller.categoryIds || [])];
 
     // モーダルにデータを設定
     document.getElementById('editSellerId').value = sellerId;
@@ -1111,28 +1119,15 @@ async function editSeller(sellerId) {
     });
 
     // カテゴリボタンを生成
-    const categoriesContainer = document.getElementById('editSellerCategories');
-    if (categories.length === 0) {
-      categoriesContainer.innerHTML = '<span style="color: #999; font-size: 11px;">カテゴリがありません</span>';
-    } else {
-      categoriesContainer.innerHTML = categories.map(cat => `
-        <button class="modal-category-btn ${(seller.categoryIds || []).includes(cat.id) ? 'selected' : ''}"
-                data-category-id="${cat.id}">${cat.name}</button>
-      `).join('');
+    await renderModalCategoryButtons();
 
-      // カテゴリボタンのイベント
-      categoriesContainer.querySelectorAll('.modal-category-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          btn.classList.toggle('selected');
-        });
-      });
-    }
-
-    // タイプボタンのイベント
+    // タイプボタンのイベント（一度だけ設定するため、クローンで置換）
     document.querySelectorAll('#editSellerTypes .modal-type-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+      newBtn.addEventListener('click', () => {
         document.querySelectorAll('#editSellerTypes .modal-type-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
+        newBtn.classList.add('selected');
       });
     });
 
@@ -1142,6 +1137,75 @@ async function editSeller(sellerId) {
   } catch (error) {
     console.error('セラー編集エラー:', error);
     showToast('エラーが発生しました', 'error');
+  }
+}
+
+/**
+ * モーダル内のカテゴリボタンを生成・更新
+ */
+async function renderModalCategoryButtons() {
+  const catResponse = await chrome.runtime.sendMessage({ action: 'seller_getCategories' });
+  const categories = catResponse.success ? catResponse.categories : [];
+
+  const categoriesContainer = document.getElementById('editSellerCategories');
+
+  if (categories.length === 0) {
+    categoriesContainer.innerHTML = '<span style="color: #999; font-size: 11px;">カテゴリがありません（下のボタンで追加）</span>';
+  } else {
+    categoriesContainer.innerHTML = categories.map(cat => `
+      <button class="modal-category-btn ${currentEditingSellerCategoryIds.includes(cat.id) ? 'selected' : ''}"
+              data-category-id="${cat.id}">${cat.name}</button>
+    `).join('');
+
+    // カテゴリボタンのイベント
+    categoriesContainer.querySelectorAll('.modal-category-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.classList.toggle('selected');
+        // 選択状態を更新
+        const catId = btn.dataset.categoryId;
+        if (btn.classList.contains('selected')) {
+          if (!currentEditingSellerCategoryIds.includes(catId)) {
+            currentEditingSellerCategoryIds.push(catId);
+          }
+        } else {
+          currentEditingSellerCategoryIds = currentEditingSellerCategoryIds.filter(id => id !== catId);
+        }
+      });
+    });
+  }
+}
+
+/**
+ * モーダル内でカテゴリを新規追加
+ */
+async function addCategoryInModal() {
+  const name = prompt('新しいカテゴリ名を入力してください:');
+  if (!name || !name.trim()) return;
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'seller_addCategory',
+      name: name.trim()
+    });
+
+    if (response && response.success) {
+      // 新しいカテゴリを選択状態にする
+      currentEditingSellerCategoryIds.push(response.categoryId);
+
+      // カテゴリボタンを再描画
+      await renderModalCategoryButtons();
+
+      // メインのカテゴリセレクトも更新
+      await loadCategoryOptions();
+      await loadSellerStats();
+
+      showToast(`カテゴリ「${name}」を追加しました`, 'success');
+    } else {
+      showToast('カテゴリの追加に失敗しました', 'error');
+    }
+  } catch (error) {
+    console.error('カテゴリ追加エラー:', error);
+    showToast('追加中にエラーが発生しました', 'error');
   }
 }
 

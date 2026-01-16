@@ -689,6 +689,26 @@
     .modal-footer .btn {
       flex: 1;
     }
+
+    .modal-add-category-btn {
+      display: block;
+      width: 100%;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border: 1px dashed #ccc;
+      border-radius: 6px;
+      background: #fafafa;
+      font-size: 11px;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .modal-add-category-btn:hover {
+      border-color: #f5af02;
+      background: #fffbf0;
+      color: #856404;
+    }
   </style>
 </head>
 <body>
@@ -1085,6 +1105,7 @@
         <div class="modal-field">
           <label>カテゴリ</label>
           <div class="modal-categories" id="editSellerCategories"></div>
+          <button class="modal-add-category-btn" id="modalAddCategoryBtn">➕ 新しいカテゴリを追加</button>
         </div>
 
         <div class="modal-field">
